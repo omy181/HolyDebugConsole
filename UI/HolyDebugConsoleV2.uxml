@@ -1,25 +1,25 @@
 <ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
     <Style src="project://database/Assets/DebugConsole/dev.holyperson.holydebugconsole/UI/Components/baseField.uss?fileID=7433441132597879392&amp;guid=f9a9546ed27c57843bb3d709e002abd8&amp;type=3#baseField"/>
     <ui:VisualElement name="Root" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0.34); flex-direction: row;">
-        <ui:VisualElement name="CommandButtons" style="flex-grow: 0; background-color: rgba(0, 0, 0, 0.58); flex-direction: column-reverse; flex-basis: 30%;">
+        <ui:VisualElement name="CommandButtons" style="flex-grow: 0; background-color: rgba(0, 0, 0, 0.68); flex-direction: column-reverse; flex-basis: 30%;">
             <ui:VisualElement name="Toolbar" style="flex-grow: 0; flex-direction: row; align-content: auto; align-self: stretch; justify-content: space-around; align-items: stretch; margin-bottom: 0; margin-left: 2px; margin-right: 2px; position: relative; flex-shrink: 0; margin-top: 0;">
                 <ui:TextField label="" placeholder-text="Search Command" name="SearchBar" style="bottom: auto; left: auto; padding-left: 0; margin-left: 0; margin-right: 0; margin-bottom: 0; margin-top: 0; flex-grow: 1; flex-basis: auto; width: 80%;"/>
             </ui:VisualElement>
             <ui:ScrollView name="Blocks" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden" style="flex-grow: 0; padding-top: 8px; padding-left: 8px; padding-right: 8px; padding-bottom: 8px; flex-shrink: 1;"/>
         </ui:VisualElement>
         <ui:VisualElement name="Console" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0.05); flex-direction: column-reverse;">
-            <ui:VisualElement name="ConsoleToolbarBottom" style="flex-grow: 0; position: relative; bottom: auto; right: auto; margin-left: 0; margin-right: 0; margin-bottom: 0; margin-top: 0; flex-direction: row; background-color: rgba(0, 0, 0, 0.62); padding-top: 8px; padding-left: 8px; padding-bottom: 8px; padding-right: 8px;">
+            <ui:VisualElement name="ConsoleToolbarBottom" style="flex-grow: 0; position: relative; bottom: auto; right: auto; margin-left: 0; margin-right: 0; margin-bottom: 0; margin-top: 0; flex-direction: row; background-color: rgba(0, 0, 0, 0.76); padding-top: 8px; padding-left: 8px; padding-bottom: 8px; padding-right: 8px; flex-shrink: 0;">
                 <ui:Button text="Clear" name="ClearConsole" style="padding-top: 3px; padding-bottom: 3px; padding-left: 6px; padding-right: 6px; margin-top: 0; margin-bottom: 0; margin-right: 2px; margin-left: 2px; flex-direction: column; flex-shrink: 1;"/>
                 <ui:Button text="Copy to clipboard" name="ClipboardConsole" style="padding-top: 3px; padding-bottom: 3px; padding-left: 6px; padding-right: 6px; margin-top: 0; margin-bottom: 0; margin-right: 2px; margin-left: 2px; flex-direction: column; flex-shrink: 1;"/>
             </ui:VisualElement>
-            <ui:ScrollView name="ScrollView" style="flex-grow: 0;">
-                <ui:Label text="" name="ConsoleText" style="font-size: 14px; margin-left: 4px; flex-grow: 1; color: rgb(255, 255, 255);"/>
-            </ui:ScrollView>
-            <ui:VisualElement name="ConsoleToolbar" style="flex-grow: 0; flex-direction: row-reverse; position: absolute; bottom: 0; right: 0; top: auto; left: auto; border-top-width: 0; border-right-width: 0; border-bottom-width: 0; margin-right: 8px; margin-top: 8px; margin-left: 8px; margin-bottom: 8px;">
+            <ui:VisualElement name="ConsoleToolbar" style="flex-grow: 0; flex-direction: row-reverse; position: absolute; bottom: 0; right: 0; top: auto; left: auto; border-top-width: 0; border-right-width: 0; border-bottom-width: 0; margin-right: 8px; margin-top: 8px; margin-left: 8px; margin-bottom: 8px; flex-shrink: 0;">
                 <ui:Button text="Exit" name="Exit" style="padding-top: 3px; padding-bottom: 3px; padding-left: 6px; padding-right: 6px; margin-top: 0; margin-bottom: 0; margin-right: 2px; margin-left: 2px; flex-direction: column;"/>
                 <ui:Button text="+" name="SizePlus" style="padding-top: 3px; padding-bottom: 3px; padding-left: 8px; padding-right: 8px; margin-top: 0; margin-bottom: 0; margin-right: 2px; margin-left: 2px; flex-direction: column;"/>
                 <ui:Button text="-" name="SizeMinus" style="padding-top: 3px; padding-bottom: 3px; padding-left: 8px; padding-right: 8px; margin-top: 0; margin-bottom: 0; margin-right: 2px; margin-left: 2px; flex-direction: column;"/>
             </ui:VisualElement>
+            <ui:ScrollView name="ScrollView" style="flex-grow: 0;">
+                <ui:Label text="" name="ConsoleText" style="font-size: 14px; margin-left: 4px; flex-grow: 1; color: rgb(255, 255, 255); white-space: normal; -unity-paragraph-spacing: 65px;"/>
+            </ui:ScrollView>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
