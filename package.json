@@ -1,0 +1,17 @@
+{
+  "name": "dev.holyperson.holydebugconsole",
+  "version": "1.1.0",
+  "displayName": "HolyDebugConsole",
+  "unity": "6000.2",
+  "keywords": [
+    "graphics",
+    "render",
+    "rendering"
+  ],
+  "author": {
+    "name": "HOLYPERSON"
+  },
+  "hideInEditor": false,
+  "unityRelease": "0f1",
+  "description": "A visual debug console with attribute based debug functions"
+}

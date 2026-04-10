@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: eb1f0cf0559e95748aed7074a4f8b3ef
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - _regularCommandBlock: {fileID: 9197481963319205126, guid: 775da9f5fbe04db47a5fc62e99ed1792, type: 3}
+  - _parameterCommandBlock: {fileID: 9197481963319205126, guid: f22c0f4262e158f4f805294de3c54ef2, type: 3}
+  - _commandBlockParameter: {fileID: 9197481963319205126, guid: c00089ff52ea63246aa9db0af011f2b4, type: 3}
+  - _commandBlockGroup: {fileID: 9197481963319205126, guid: 6bc7e33b085a87b4597afd1cc33b28fc, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

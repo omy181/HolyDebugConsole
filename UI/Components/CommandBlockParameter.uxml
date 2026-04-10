@@ -1,0 +1,4 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="project://database/Assets/Libraries/HolyLib/HolyDebugConsole/Components/baseField.uss?fileID=7433441132597879392&amp;guid=f9a9546ed27c57843bb3d709e002abd8&amp;type=3#baseField"/>
+    <ui:TextField label="Item Name" placeholder-text="" name="CommandBlockParameter" style="color: rgb(185, 185, 185); -unity-text-align: upper-right; -unity-font-style: italic; font-size: 13px;"/>
+</ui:UXML>

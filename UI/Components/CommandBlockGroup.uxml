@@ -1,0 +1,6 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <ui:VisualElement name="Group" style="flex-grow: 1; background-color: rgb(43, 43, 43); border-top-left-radius: 8px; border-top-right-radius: 8px; border-bottom-right-radius: 8px; border-bottom-left-radius: 8px; padding-top: 3px; padding-bottom: 3px; margin-top: 2px; margin-bottom: 2px; padding-left: 2px; padding-right: 2px;">
+        <ui:Label text="Items" style="font-size: 14px; color: rgb(202, 202, 202); -unity-text-align: middle-center; margin-top: 0; margin-bottom: 0; padding-top: 2px; padding-bottom: 2px;"/>
+        <ui:VisualElement name="Blocks" style="flex-grow: 1;"/>
+    </ui:VisualElement>
+</ui:UXML>
