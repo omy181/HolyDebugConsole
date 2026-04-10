@@ -17,6 +17,8 @@
             </ui:ScrollView>
             <ui:VisualElement name="ConsoleToolbar" style="flex-grow: 0; flex-direction: row-reverse; position: absolute; bottom: 0; right: 0; top: auto; left: auto; border-top-width: 0; border-right-width: 0; border-bottom-width: 0; margin-right: 8px; margin-top: 8px; margin-left: 8px; margin-bottom: 8px;">
                 <ui:Button text="Exit" name="Exit" style="padding-top: 3px; padding-bottom: 3px; padding-left: 6px; padding-right: 6px; margin-top: 0; margin-bottom: 0; margin-right: 2px; margin-left: 2px; flex-direction: column;"/>
+                <ui:Button text="+" name="SizePlus" style="padding-top: 3px; padding-bottom: 3px; padding-left: 8px; padding-right: 8px; margin-top: 0; margin-bottom: 0; margin-right: 2px; margin-left: 2px; flex-direction: column;"/>
+                <ui:Button text="-" name="SizeMinus" style="padding-top: 3px; padding-bottom: 3px; padding-left: 8px; padding-right: 8px; margin-top: 0; margin-bottom: 0; margin-right: 2px; margin-left: 2px; flex-direction: column;"/>
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>

@@ -90,7 +90,13 @@ namespace Holylib.DebugConsole {
 
             var exitConsole = _root.Q<Button>("Exit");
             exitConsole.clicked += _toggleConsole;
-
+            
+            var sizeIncreaseButton = _root.Q<Button>("SizePlus");
+            sizeIncreaseButton.clicked += _increaseFontSize;
+            
+            var sizeDecreaseButton = _root.Q<Button>("SizeMinus");
+            sizeDecreaseButton.clicked += _decreaseFontSize;
+            
             _blocksUI = _root.Q<ScrollView>("Blocks");
 
             _searchField = _root.Q<TextField>("SearchBar");
@@ -104,6 +110,7 @@ namespace Holylib.DebugConsole {
             _instantiateCommandBlocks();
             _updateCommandBlocksList();
             _preventDefaultTabBehaviour();
+            _setFontSize();
         }
         
   #endregion
@@ -288,9 +295,9 @@ namespace Holylib.DebugConsole {
                 }
 
                 if (entry.Value > 1)
-                    sb.AppendLine($"- ({entry.Value}) {colorStart}{entry.Key.message}{colorEnd}");
+                    sb.AppendLine($"> ({entry.Value}) {colorStart}{entry.Key.message}{colorEnd}");
                 else
-                    sb.AppendLine($"- {colorStart}{entry.Key.message}{colorEnd}");
+                    sb.AppendLine($"> {colorStart}{entry.Key.message}{colorEnd}");
             }
 
             _outputText.text = sb.ToString();
@@ -305,6 +312,27 @@ namespace Holylib.DebugConsole {
         private void _copyConsoleToClipboard() {
             GUIUtility.systemCopyBuffer = _outputText.text;
             Debug.Log("Copied to clipboard");
+        }
+
+        private readonly int _defaultFontSize = 14;
+        private const string Fontplayerpref = "DebugConsoleFontSize";
+
+        private void _setFontSize() {
+            int fontSize = PlayerPrefs.GetInt(Fontplayerpref, _defaultFontSize);
+            _outputText.style.fontSize = fontSize;
+        }
+        private void _increaseFontSize() {
+            int fontSize = PlayerPrefs.GetInt(Fontplayerpref, _defaultFontSize);
+            fontSize = Mathf.Clamp(fontSize+1,5,60);
+            _outputText.style.fontSize = fontSize;
+            PlayerPrefs.SetInt(Fontplayerpref, fontSize);
+        }
+        
+        private void _decreaseFontSize() {
+            int fontSize = PlayerPrefs.GetInt(Fontplayerpref, _defaultFontSize);
+            fontSize = Mathf.Clamp(fontSize-1,5,60);
+            _outputText.style.fontSize = fontSize;
+            PlayerPrefs.SetInt(Fontplayerpref, fontSize);
         }
         
         private void _handleLog (string logString, string stackTrace, LogType type) {
