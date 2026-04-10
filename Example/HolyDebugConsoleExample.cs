@@ -9,7 +9,7 @@ public class HolyDebugConsoleExample : MonoBehaviour
     }
 
     private void _handleInput() {
-        if (Keyboard.current.tabKey.wasPressedThisFrame) {
+        if (Keyboard.current.f1Key.wasPressedThisFrame) {
             HolyDebugConsole.instance.ToggleConsole();
         }
     }

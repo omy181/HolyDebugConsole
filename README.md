@@ -29,7 +29,7 @@ Easy-to-use, attribute-based runtime visual debug console for Unity
    For a quick start:
    1. Drag the `HolyDebugConsoleExample.cs` script onto a GameObject.
    2. Run the game.
-   3. Press Tab to toggle the console.
+   3. Press F1 to toggle the console.
 
 ## How to add a new command
 
