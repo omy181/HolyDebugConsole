@@ -1,16 +1,28 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
+using Debug = UnityEngine.Debug;
+using Object = UnityEngine.Object;
+
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace Holylib.DebugConsole {
 
     [RequireComponent(typeof(UIDocument))]
-    public class HolyDebugConsole : MonoBehaviour {
+    public class HolyDebugConsole : MonoBehaviour
+    {
+        [Header("Settings")]
+        [SerializeField]
+        private bool _subscribeToConsole = true;
         
         #region References
         [Header("References")]
@@ -34,12 +46,21 @@ namespace Holylib.DebugConsole {
         public Action<bool> OnConsoleToggled;
         public void ExecuteLastCommand() => _executeCommand(_searchField.value);
         public void ExecuteCommand (string input) => _executeCommand(input);
-        public static void OutputToConsole (string message, LogType type = LogType.Log) {
+        public static void OutputToConsole (string message, LogType type = LogType.Log)
+        {
             var key = (message, type);
 
             if (!_logCounts.TryAdd(key, 1))
                 _logCounts[key]++;
 
+
+            if (type is LogType.Error or LogType.Exception or LogType.Warning)
+            {
+                if (instance._subscribeToConsole) Application.logMessageReceivedThreaded -= instance._handleLog;
+                Debug.LogError(message);
+                if (instance._subscribeToConsole) Application.logMessageReceivedThreaded += instance._handleLog;
+            }
+            
             _refreshOutput();
         }
 
@@ -70,11 +91,17 @@ namespace Holylib.DebugConsole {
             instance = null;
         }
         void OnEnable() {
-            Application.logMessageReceivedThreaded += _handleLog;
+            if (_subscribeToConsole)
+            {
+                Application.logMessageReceivedThreaded += _handleLog;
+            }
         }
 
         void OnDisable() {
-            Application.logMessageReceived -= _handleLog;
+            if (_subscribeToConsole)
+            {
+                Application.logMessageReceived -= _handleLog;
+            }
         }
         private void _initialize() {
             _root = _uiDocument.rootVisualElement;
@@ -261,18 +288,17 @@ namespace Holylib.DebugConsole {
                 return true;
             }
 
-            bool success = false;
 
+            bool success;
+            
             try {
                 success = DebugCommandRegistry.TryInvoke(input);
             }
-            catch {
+            catch (Exception e) {
+                OutputToConsole($"Command not found: {input}, Exception: {e}", LogType.Warning);
                 success = false;
             }
-
-            if (!success)
-                OutputToConsole($"Command not found: {input}", LogType.Warning);
-
+            
             return success;
         }
 
@@ -337,7 +363,7 @@ namespace Holylib.DebugConsole {
         
         private void _handleLog (string logString, string stackTrace, LogType type) {
             lock (_logQueue) {
-                _logQueue.Enqueue((logString, type));
+                _logQueue.Enqueue(($"{logString}\n{stackTrace}", type));
             }
         }
 
@@ -384,9 +410,9 @@ namespace Holylib.DebugConsole {
                 VisualElement block;
 
                 if (parameters.Length == 0) {
-                    block = _instantiateRegularCommandBlock(command.Value.method.Name);
+                    block = _instantiateRegularCommandBlock(command.Value.name);
                 } else {
-                    block = _instantiateParameterCommandBlock(command.Value.method.Name, parameters);
+                    block = _instantiateParameterCommandBlock(command.Value.name, parameters);
                 }
 
                 block.name = command.Value.group.Name;
@@ -753,16 +779,19 @@ namespace Holylib.DebugConsole {
     public static class DebugCommandRegistry {
 
         public struct MethodGroup {
+            public readonly string name;
             public readonly MethodInfo method;
             public DebugGroupStyle group;
-            public MethodGroup (MethodInfo method, DebugGroupStyle group) {
+            public MethodGroup (MethodInfo method, DebugGroupStyle group, string name) {
                 this.method = method;
                 this.group = group;
+                this.name = name;
             }
         }
 
         public static Dictionary<string, DebugGroupStyle> NameToGroup = new Dictionary<string, DebugGroupStyle>();
         public static Dictionary<string, MethodGroup> Commands = new Dictionary<string, MethodGroup>();
+        public static Dictionary<string, Dictionary<string, ScriptableObject>> ScriptableObjects = new Dictionary<string, Dictionary<string, ScriptableObject>>();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void RegisterCommands() {
@@ -771,42 +800,85 @@ namespace Holylib.DebugConsole {
         }
 
         private static void _registerCommands() {
+            Stopwatch stopwatch = Stopwatch.StartNew();
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies()) {
+                if (assembly.GetName().Name != "Core")
+                {
+                    continue;
+                }
                 foreach (Type type in assembly.GetTypes()) {
-                    foreach (MethodInfo method in type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)) {
+                    foreach (MethodInfo method in type.GetMethods(BindingFlags.Static | BindingFlags.Default | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)) {
                         try {
                             var attribute = method.GetCustomAttribute<DebugCommandAttribute>();
-                            if (attribute != null) {
+                            if (attribute == null) continue;
+                            
+                            if (method.DeclaringType.IsSubclassOf(typeof(ScriptableObject)))
+                            {
+#if UNITY_EDITOR
+                                string search = $"t:{method.DeclaringType.Name}";
+                                string[] guids = AssetDatabase.FindAssets(search, new[] { "ScriptableObjects" });
+    
+                                Dictionary<string, ScriptableObject> values = new Dictionary<string, ScriptableObject>();
+                                if (!NameToGroup.TryGetValue(attribute.Group, out DebugGroupStyle group))
+                                {
+                                    group = new DebugGroupStyle(attribute.Group, Color.white);
+                                    NameToGroup[attribute.Group] = group;
+                                }
+                                
+                                foreach (string guid in guids)
+                                {
+                                    string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+                                    ScriptableObject data = AssetDatabase.LoadAssetAtPath<ScriptableObject>(assetPath);
+                                    if (data != null)
+                                    {
+                                        string keyString = $"{method.Name}_{data.name}";
+                                        keyString = keyString.Replace(' ', '_');
+                                        
+                                        values.Add(keyString, data);
+                                        Commands[keyString] = new MethodGroup(method, group, keyString);
+                                    }
+                                }
+                                
+                                ScriptableObjects[method.Name] = values;
+#endif   
+                            }
+                            else
+                            {
                                 if (NameToGroup.TryGetValue(attribute.Group, out DebugGroupStyle group)) {
-                                    Commands[method.Name.ToLower()] = new(method, group);
+                                    Commands[method.Name] = new MethodGroup(method, group, method.Name);
                                 } else {
                                     NameToGroup[attribute.Group] = new DebugGroupStyle(attribute.Group, Color.white);
-                                    Commands[method.Name.ToLower()] = new(method, NameToGroup[attribute.Group]);
+                                    Commands[method.Name] = new MethodGroup(method, NameToGroup[attribute.Group], method.Name);
                                 }
                             }
                         }
-                        catch (Exception e) {
+                        catch (Exception e) { 
                             Debug.LogException(e);
                         }
                     }
                 }
             }
+            stopwatch.Stop();
+            Debug.Log($"Time to register debug commands: {stopwatch.Elapsed.TotalMilliseconds}ms");
         }
 
-        private static void _registerStyles() {
-            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies()) {
-                foreach (Type type in assembly.GetTypes()) {
-                    foreach (FieldInfo field in type.GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)) {
-                        try {
-                            var attribute = field.GetCustomAttribute<DebugCommandGroupAttribute>();
-                            if (attribute != null) {
-                                NameToGroup[attribute.GroupName] = (DebugGroupStyle)field.GetValue(null);
-                            }
-                        }
-                        catch (Exception e) {
-                            Debug.LogException(e);
-                        }
+        private static void _registerStyles()
+        {
+            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (Type type in assembly.GetTypes())
+            foreach (FieldInfo field in type.GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
+            {
+                try
+                {
+                    var attribute = field.GetCustomAttribute<DebugCommandGroupAttribute>();
+                    if (attribute != null)
+                    {
+                        NameToGroup[attribute.GroupName] = (DebugGroupStyle)field.GetValue(null);
                     }
+                }
+                catch (Exception e)
+                {
+                    Debug.LogException(e);
                 }
             }
         }
@@ -854,10 +926,8 @@ namespace Holylib.DebugConsole {
 
             if (currentPhrase != "") tokens.Add(currentPhrase);
 
-
-            MethodGroup methodGroup;
-            string command = tokens[0].ToLower();
-            if (!Commands.TryGetValue(command, out methodGroup))
+            string command = tokens[0];
+            if (!Commands.TryGetValue(command, out MethodGroup methodGroup))
                 return false;
 
             var parameters = methodGroup.method.GetParameters();
@@ -877,10 +947,32 @@ namespace Holylib.DebugConsole {
                 }
             }
 
-            methodGroup.method.Invoke(null, parsedArgs);
+            if (methodGroup.method.IsStatic)
+            { 
+                methodGroup.method.Invoke(null, parsedArgs);
+            }
+            else
+            {
+                Type ownerClass = methodGroup.method.DeclaringType;
+                if (ownerClass != null && ownerClass.IsSubclassOf(typeof(MonoBehaviour)))
+                {
+                    Object[] objs = Object.FindObjectsByType(methodGroup.method.DeclaringType);
+                    foreach (Object obj in objs)
+                    {
+                        methodGroup.method.Invoke(obj, parsedArgs);
+                    }
+                }
+                else if (ownerClass != null && ownerClass.IsSubclassOf(typeof(ScriptableObject)))
+                {
+                    if (ScriptableObjects.TryGetValue(methodGroup.method.Name, out Dictionary<string, ScriptableObject> value)
+                        && value.TryGetValue(methodGroup.name, out ScriptableObject obj))
+                    {
+                        methodGroup.method.Invoke(obj, parsedArgs);
+                    }
+                }
+            }
             return true;
         }
-
     }
     #endregion
 
