@@ -717,7 +717,7 @@ namespace Holylib.DebugConsole {
         private void _savePins() {
             string condensedPins = "";
             foreach (var pins in _pinnedBlocks) {
-                condensedPins += $"{pins}_";
+                condensedPins += $"{pins}%";
             }
 
             if (condensedPins.Length != 0)
@@ -732,7 +732,7 @@ namespace Holylib.DebugConsole {
 
             if (condensedPins.Length == 0) return;
 
-            foreach (var pins in condensedPins.Split('_')) {
+            foreach (var pins in condensedPins.Split('%')) {
                 _pinnedBlocks.Add(pins);
             }
         }
@@ -837,7 +837,7 @@ namespace Holylib.DebugConsole {
                     continue;
                 }
                 foreach (Type type in assembly.GetTypes()) {
-                    foreach (MethodInfo method in type.GetMethods(BindingFlags.Static | BindingFlags.Default | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)) {
+                    foreach (MethodInfo method in type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)) {
                         try {
                             var attribute = method.GetCustomAttribute<DebugCommandAttribute>();
                             if (attribute == null) continue;
@@ -906,7 +906,7 @@ namespace Holylib.DebugConsole {
                                 ScriptableObject data = AssetDatabase.LoadAssetAtPath<ScriptableObject>(assetPath);
                                 if (data != null)
                                 {
-                                    string keyString = $"{method.Name}_{data.name}";
+                                    string keyString = $"<color=grey>{method.Name}_</color>{data.name}";
                                     keyString = keyString.Replace(' ', '_');
                                         
                                     values.Add(keyString, data);
