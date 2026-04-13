@@ -107,6 +107,7 @@ namespace Holylib.DebugConsole {
 
             _searchField.RegisterCallback<KeyUpEvent>(evt => {
                 SetSelectedBlockIndex(-1);
+                _updateCommandBlocksList();
             });
             
             _loadPins();
