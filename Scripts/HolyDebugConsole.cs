@@ -123,6 +123,9 @@ namespace Holylib.DebugConsole {
         
         private double _lasTimeUpDownPressed;
         private void _InputHandling() {
+            
+            if(!IsConsoleOpen) return;
+            
             if (Keyboard.current.backspaceKey.wasReleasedThisFrame) {
                 _backspacePressed();
             } else if (Keyboard.current.tabKey.wasPressedThisFrame) {
@@ -826,6 +829,7 @@ namespace Holylib.DebugConsole {
 
                     if (!quotationOpen) {
                         tokens.Add(quotedText);
+                        quotedText = "";
                     }
                 } else {
                     if (quotationOpen) {
