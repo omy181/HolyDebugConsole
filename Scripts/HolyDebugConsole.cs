@@ -100,10 +100,13 @@ namespace Holylib.DebugConsole {
             _blocksUI = _root.Q<ScrollView>("Blocks");
 
             _searchField = _root.Q<TextField>("SearchBar");
+            
+            _searchField.RegisterCallback<FocusEvent>(evt => {
+                SetSelectedBlockIndex(-1);
+            });
 
             _searchField.RegisterCallback<KeyUpEvent>(evt => {
-                SelectedBlockIndex = -1;
-                _updateCommandBlocksList();
+                SetSelectedBlockIndex(-1);
             });
             
             _loadPins();
@@ -117,7 +120,6 @@ namespace Holylib.DebugConsole {
 
         #region Input Handling
         
-        private bool _isInParameterEditMode;
         private double _lasTimeUpDownPressed;
         private void _InputHandling() {
             if (Keyboard.current.backspaceKey.wasReleasedThisFrame) {
@@ -132,8 +134,6 @@ namespace Holylib.DebugConsole {
                 _upArrowPressed();
             } else if (Keyboard.current.downArrowKey.wasPressedThisFrame) {
                 _downArrowPressed();
-            } else if (Keyboard.current.leftArrowKey.wasPressedThisFrame || Keyboard.current.rightArrowKey.wasPressedThisFrame) {
-                _leftOrRightPressed();
             }
 
             if (Keyboard.current.upArrowKey.wasReleasedThisFrame || Keyboard.current.downArrowKey.wasReleasedThisFrame) {
@@ -150,25 +150,20 @@ namespace Holylib.DebugConsole {
         
         #region Input Actions
         private void _backspacePressed() {
-            if (!_isInParameterEditMode) {
-                SelectedBlockIndex = -1;
+            if (!_hasParametersInSelection && GetSelectedBlockIndex() != -1) {
+                SetSelectedBlockIndex(-1);
                 _updateCommandBlocksList();
             }
         }
         private void _tabPressed() {
-            if (!_isInParameterEditMode && _getSelectedCommandBlock?.ParameterLength > 0) {
-                SelectedParameterIndex = 0;
-                _isInParameterEditMode = true;
-                _updateCommandBlocksList();
-            } else if (_isInParameterEditMode && _getSelectedCommandBlock?.ParameterLength > 0) {
+            if (_hasParametersInSelection) {
                 SelectedParameterIndex = (SelectedParameterIndex + 1 + _getSelectedCommandBlock.ParameterLength) % _getSelectedCommandBlock.ParameterLength;
                 _updateCommandBlocksList();
             }
         }
         private void _backToSearchPressed() {
             SelectedParameterIndex = -1;
-            _isInParameterEditMode = false;
-            SelectedBlockIndex = -1;
+            SetSelectedBlockIndex(-1);
 
             _updateCommandBlocksList();
         }
@@ -192,13 +187,7 @@ namespace Holylib.DebugConsole {
             _downInList();
             _lasTimeUpDownPressed = Time.time - 0.45f;
         }
-        private void _leftOrRightPressed() {
-            if (_getSelectedCommandBlock.ParameterLength > 0 && !_isInParameterEditMode) {
-                _isInParameterEditMode = true;
-                SelectedParameterIndex = 0;
-                _updateCommandBlocksList();
-            }
-        }
+
         private void _upOrDownStartedPressing() {
             _lasTimeUpDownPressed = -1;
         }
@@ -234,7 +223,7 @@ namespace Holylib.DebugConsole {
             _searchField.Focus();
         }
         private void _toggleConsole() {
-            SelectedBlockIndex = -1;
+            SetSelectedBlockIndex(-1);
 
             IsConsoleOpen = !IsConsoleOpen;
 
@@ -344,7 +333,8 @@ namespace Holylib.DebugConsole {
 
         private List<CommandBlock> _commandBlocks = new();
         private List<CommandBlock> _visibleCommandBlocks = new();
-        
+
+        private bool _hasParametersInSelection =>  _getSelectedCommandBlock?.ParameterLength > 0;
         private int _visibleBlockCount;
         private int _selectedParameterIndex;
         private int SelectedParameterIndex {
@@ -366,39 +356,41 @@ namespace Holylib.DebugConsole {
             }
         }
         private int _selectedBlockIndex = -1;
-        private int SelectedBlockIndex {
-            get => _selectedBlockIndex;
-            set {
-                if (value == _selectedBlockIndex) return;
-                
-                if (value == -1 || value == _visibleBlockCount) {
-                    _selectedBlockIndex = -1;
-                    SelectedParameterIndex = -1;
-                    _isInParameterEditMode = false;
-                    
-                } else if(value == -2){
-                    _selectedBlockIndex = _visibleBlockCount-1;
-                    SelectedParameterIndex = _getSelectedCommandBlock.ParameterLength-1;
-                    _isInParameterEditMode = SelectedParameterIndex != -1;
-                    
-                } else if(value >= 0 && value < _visibleBlockCount) {
-                    int prevBlockIndex = _selectedBlockIndex;
-                    _isInParameterEditMode = SelectedParameterIndex != -1;
-                    _selectedBlockIndex = value;
-                    
+        private int GetSelectedBlockIndex() => _selectedBlockIndex;
+        private void SetSelectedBlockIndex (int value,int manualParameterIndex = -1) {
+            if (value == _selectedBlockIndex) return;
+            
+            bool isManualParameterIndex = manualParameterIndex != -1;
+
+            if (value == -1 || value == _visibleBlockCount) {
+                _selectedBlockIndex = -1;
+                SelectedParameterIndex = isManualParameterIndex ? manualParameterIndex : -1;
+
+            } else if (value == -2) {
+                _selectedBlockIndex = _visibleBlockCount - 1;
+                SelectedParameterIndex = isManualParameterIndex ? manualParameterIndex : _getSelectedCommandBlock.ParameterLength - 1;
+
+            } else if (value >= 0 && value < _visibleBlockCount) {
+                int prevBlockIndex = _selectedBlockIndex;
+                _selectedBlockIndex = value;
+
+                if (isManualParameterIndex) {
+                    SelectedParameterIndex = manualParameterIndex;
+                } else {
                     if (value <= prevBlockIndex) {
-                        SelectedParameterIndex = _getSelectedCommandBlock.ParameterLength-1;
+                        SelectedParameterIndex = _getSelectedCommandBlock.ParameterLength - 1;
                     } else {
                         SelectedParameterIndex = _getSelectedCommandBlock.ParameterLength != 0 ? 0 : -1;
                     }
-                    
-                } else {
-                    Debug.LogError($"{value} is not a valid selected block index");
                 }
                 
-                _updateCommandBlocksList();
+
+
+            } else {
+                Debug.LogError($"{value} is not a valid selected block index");
             }
 
+            _updateCommandBlocksList();
         }
 
         private CommandBlock _getSelectedCommandBlock {
@@ -426,7 +418,7 @@ namespace Holylib.DebugConsole {
             
             public void RunCommand() {
 
-                instance.SelectedBlockIndex = instance._visibleCommandBlocks.IndexOf(this);
+                instance.SetSelectedBlockIndex(instance._visibleCommandBlocks.IndexOf(this));
                 
                 if (Parameters.Length == 0) {
                     instance._playExecuteAnimation(VisualBlock.Children().First(), instance._executeCommand(MethodName));
@@ -477,9 +469,8 @@ namespace Holylib.DebugConsole {
         #region Visuals
         private void _instantiateCommandBlocks() {
 
-            SelectedBlockIndex = -1;
-            _isInParameterEditMode = false;
-            
+            SetSelectedBlockIndex(-1);
+
             _blocksUI.Clear();
             _commandBlocks.Clear();
 
@@ -570,13 +561,13 @@ namespace Holylib.DebugConsole {
             _visibleCommandBlocks.InsertRange(0,pinnedBlocks);
             
             // focus
-            if (SelectedBlockIndex == -1) {
+            if (GetSelectedBlockIndex() == -1) {
                 _searchField.Focus();
             } else if (_getSelectedCommandBlock?.ParameterLength <= 0) {
                 _getSelectedCommandBlock.VisualBlock.Focus();
             }
 
-            if (SelectedBlockIndex != -1) {
+            if (GetSelectedBlockIndex() != -1) {
                 _blocksUI.ScrollTo(_getSelectedCommandBlock.VisualBlock);
                 _getSelectedCommandBlock.VisualBlock.Children().First().AddToClassList("command-block-pseudo-hover");
             }
@@ -605,14 +596,21 @@ namespace Holylib.DebugConsole {
 
             List<ParameterField> parameterFields = new();
 
+            int parameterIndex = 0;
             foreach (var parameter in commandBlock.Parameters) {
 
                 var parameterField = _commandBlockParameter.Instantiate();
                 var field = parameterField.Q<TextField>("CommandBlockParameter");
                 field.label = parameter.Name;
+                field.RegisterCallback<FocusEvent>(evt => {
+                    SetSelectedBlockIndex(instance._visibleCommandBlocks.IndexOf(commandBlock),parameterIndex);
+                });
+                
+                
                 parameterFields.Add(new(field, parameter.ParameterType));
 
                 block.Q<VisualElement>("Parameters").Add(parameterField);
+                parameterIndex++;
             }
 
             block.Q<Button>("Pin").clicked += () => {
@@ -697,7 +695,7 @@ namespace Holylib.DebugConsole {
             if(SelectedParameterIndex > 0){
                 SelectedParameterIndex--;
             } else {
-                SelectedBlockIndex--;
+                SetSelectedBlockIndex(GetSelectedBlockIndex() - 1);
             }
         }
 
@@ -707,7 +705,7 @@ namespace Holylib.DebugConsole {
             if(SelectedParameterIndex < _getSelectedCommandBlock?.ParameterLength-1){
                 SelectedParameterIndex++;
             } else {
-                SelectedBlockIndex++;
+                SetSelectedBlockIndex(GetSelectedBlockIndex() + 1);
             }
         }
 
