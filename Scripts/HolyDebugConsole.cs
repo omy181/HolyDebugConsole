@@ -1,15 +1,17 @@
-using System;
-using System.Collections;
+using Assembly = System.Reflection.Assembly;
+using Object = UnityEngine.Object;
+using Debug = UnityEngine.Debug;
+
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Reflection;
-using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
-using Debug = UnityEngine.Debug;
-using Object = UnityEngine.Object;
+using UnityEditorInternal;
+using System.Collections;
+using System.Diagnostics;
+using System.Reflection;
+using UnityEngine;
+using System.Linq;
+using System;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -22,7 +24,20 @@ namespace Holylib.DebugConsole {
     {
         [Header("Settings")]
         [SerializeField]
+        private bool _verbose = true;
+        
+        [SerializeField]
         private bool _subscribeToConsole = true;
+
+        [SerializeField]
+        private string _rootScriptableObjectsFolder = "Assets"; 
+        
+        [Header("Search Spaces")]
+        [SerializeField]
+        private List<AssemblyDefinitionAsset> _staticAssemblies = new List<AssemblyDefinitionAsset>();
+        
+        [SerializeField]
+        private List<AssemblyDefinitionAsset> _nonStaticAssemblies = new List<AssemblyDefinitionAsset>();
         
         #region References
         [Header("References")]
@@ -46,6 +61,12 @@ namespace Holylib.DebugConsole {
         public Action<bool> OnConsoleToggled;
         public void ExecuteLastCommand() => _executeCommand(_searchField.value);
         public void ExecuteCommand (string input) => _executeCommand(input);
+        
+        public List<AssemblyDefinitionAsset> StaticAssemblies => _staticAssemblies;
+        public List<AssemblyDefinitionAsset> NonStaticAssemblies => _nonStaticAssemblies;
+        public string RootScriptableObjectsFolder => _rootScriptableObjectsFolder;
+        public bool Verbose => _verbose;
+        
         public static void OutputToConsole (string message, LogType type = LogType.Log)
         {
             var key = (message, type);
@@ -440,7 +461,9 @@ namespace Holylib.DebugConsole {
             public VisualElement ParameterParent;
 
             public void Initialize(DebugCommandRegistry.MethodGroup methodGroup) {
-                MethodName = methodGroup.method.Name;
+                MethodName = string.IsNullOrEmpty(methodGroup.name) 
+                    ? methodGroup.method.Name
+                    : methodGroup.name;
                 GroupStyle = methodGroup.group;
                 Parameters = methodGroup.method.GetParameters();
                 _createVisualBlock();
@@ -494,7 +517,6 @@ namespace Holylib.DebugConsole {
                 return $"{MethodName}-{GroupStyle.Name}";
             }
         }
-        
         
         #region Visuals
         private void _instantiateCommandBlocks() {
@@ -795,55 +817,32 @@ namespace Holylib.DebugConsole {
 
         private static void _registerCommands() {
             Stopwatch stopwatch = Stopwatch.StartNew();
-            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies()) {
-                if (assembly.GetName().Name != "Core")
+            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                // If static assemblies list is empty then search every assembly, fine for static methods
+                bool isIncluded = HolyDebugConsole.instance.StaticAssemblies.Count <= 0; 
+                foreach (AssemblyDefinitionAsset staticAssembly in HolyDebugConsole.instance.StaticAssemblies)
                 {
-                    continue;
+                    if (staticAssembly.name == assembly.GetName().Name)
+                    {
+                        isIncluded = true;
+                        break;
+                    }
                 }
+
+                if (!isIncluded) continue;
+                
                 foreach (Type type in assembly.GetTypes()) {
-                    foreach (MethodInfo method in type.GetMethods(BindingFlags.Static | BindingFlags.Default | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)) {
+                    foreach (MethodInfo method in type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)) {
                         try {
                             var attribute = method.GetCustomAttribute<DebugCommandAttribute>();
                             if (attribute == null) continue;
                             
-                            if (method.DeclaringType.IsSubclassOf(typeof(ScriptableObject)))
-                            {
-#if UNITY_EDITOR
-                                string search = $"t:{method.DeclaringType.Name}";
-                                string[] guids = AssetDatabase.FindAssets(search, new[] { "ScriptableObjects" });
-    
-                                Dictionary<string, ScriptableObject> values = new Dictionary<string, ScriptableObject>();
-                                if (!NameToGroup.TryGetValue(attribute.Group, out DebugGroupStyle group))
-                                {
-                                    group = new DebugGroupStyle(attribute.Group, Color.white);
-                                    NameToGroup[attribute.Group] = group;
-                                }
-                                
-                                foreach (string guid in guids)
-                                {
-                                    string assetPath = AssetDatabase.GUIDToAssetPath(guid);
-                                    ScriptableObject data = AssetDatabase.LoadAssetAtPath<ScriptableObject>(assetPath);
-                                    if (data != null)
-                                    {
-                                        string keyString = $"{method.Name}_{data.name}";
-                                        keyString = keyString.Replace(' ', '_');
-                                        
-                                        values.Add(keyString, data);
-                                        Commands[keyString] = new MethodGroup(method, group, keyString);
-                                    }
-                                }
-                                
-                                ScriptableObjects[method.Name] = values;
-#endif   
-                            }
-                            else
-                            {
-                                if (NameToGroup.TryGetValue(attribute.Group, out DebugGroupStyle group)) {
-                                    Commands[method.Name] = new MethodGroup(method, group, method.Name);
-                                } else {
-                                    NameToGroup[attribute.Group] = new DebugGroupStyle(attribute.Group, Color.white);
-                                    Commands[method.Name] = new MethodGroup(method, NameToGroup[attribute.Group], method.Name);
-                                }
+                            if (NameToGroup.TryGetValue(attribute.Group, out DebugGroupStyle group)) {
+                                Commands[method.Name] = new MethodGroup(method, group, method.Name);
+                            } else {
+                                NameToGroup[attribute.Group] = new DebugGroupStyle(attribute.Group, Color.white);
+                                Commands[method.Name] = new MethodGroup(method, NameToGroup[attribute.Group], method.Name);
                             }
                         }
                         catch (Exception e) { 
@@ -852,8 +851,81 @@ namespace Holylib.DebugConsole {
                     }
                 }
             }
+            
+            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                bool isIncluded = false;
+                foreach (AssemblyDefinitionAsset nonStaticAssembly in HolyDebugConsole.instance.NonStaticAssemblies)
+                {
+                    if (nonStaticAssembly.name == assembly.GetName().Name)
+                    {
+                        isIncluded = true;
+                        break;
+                    }
+                }
+
+                if (!isIncluded) continue;
+
+                foreach (Type type in assembly.GetTypes()) {
+                    foreach (MethodInfo method in type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)) {
+                        try {
+                            var attribute = method.GetCustomAttribute<DebugCommandAttribute>();
+                            if (attribute == null) continue;
+                            
+                            if (method.DeclaringType.IsSubclassOf(typeof(MonoBehaviour)))
+                            {
+                                if (NameToGroup.TryGetValue(attribute.Group, out DebugGroupStyle monoGroup)) {
+                                    Commands[method.Name] = new MethodGroup(method, monoGroup, method.Name);
+                                } else {
+                                    NameToGroup[attribute.Group] = new DebugGroupStyle(attribute.Group, Color.white);
+                                    Commands[method.Name] = new MethodGroup(method, NameToGroup[attribute.Group], method.Name);
+                                }
+                            
+                                continue;
+                            }
+                            
+#if UNITY_EDITOR
+                            if (!method.DeclaringType.IsSubclassOf(typeof(ScriptableObject))) continue;
+                            string search = $"t:{method.DeclaringType.Name}";
+                            string[] guids = AssetDatabase.FindAssets(search, new[] { HolyDebugConsole.instance.RootScriptableObjectsFolder });
+    
+                            Dictionary<string, ScriptableObject> values = new Dictionary<string, ScriptableObject>();
+                            if (!NameToGroup.TryGetValue(attribute.Group, out DebugGroupStyle group))
+                            {
+                                group = new DebugGroupStyle(attribute.Group, Color.white);
+                                NameToGroup[attribute.Group] = group;
+                            }
+                                
+                            foreach (string guid in guids)
+                            {
+                                string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+                                ScriptableObject data = AssetDatabase.LoadAssetAtPath<ScriptableObject>(assetPath);
+                                if (data != null)
+                                {
+                                    string keyString = $"{method.Name}_{data.name}";
+                                    keyString = keyString.Replace(' ', '_');
+                                        
+                                    values.Add(keyString, data);
+                                    Commands[keyString] = new MethodGroup(method, group, keyString);
+                                }
+                            }
+                                
+                            ScriptableObjects[method.Name] = values;
+#endif
+                        }
+                        catch (Exception e) { 
+                            Debug.LogException(e);
+                        }
+                    }
+                }
+                
+            }
+            
             stopwatch.Stop();
-            Debug.Log($"Time to register debug commands: {stopwatch.Elapsed.TotalMilliseconds}ms");
+            if (HolyDebugConsole.instance.Verbose)
+            {
+                Debug.Log($"Registered debug commands in: {stopwatch.Elapsed.TotalMilliseconds}ms");
+            }
         }
 
         private static void _registerStyles()
