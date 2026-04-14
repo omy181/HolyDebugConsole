@@ -17,5 +17,5 @@ public class HolyDebugConsoleExample : MonoBehaviour
     [DebugCommand(HolyDebugGroupStyles.Uncategorized)]
     private static void Print(string text) {
         Debug.Log(text);
-    } 
+    }
 }

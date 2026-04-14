@@ -261,13 +261,13 @@ namespace Holylib.DebugConsole {
                 try {
 
                     object newVal;
-                    if (commandBlock.Field.FieldType == typeof(bool)) {
-                        newVal = !(bool)commandBlock.Field.GetValue(null); // if type is bool, there is no input field, it just inverts the value
+                    if (commandBlock.Field.GetType() == typeof(bool)) {
+                        newVal = !(bool)commandBlock.Field.GetValue(); // if type is bool, there is no input field, it just inverts the value
                     } else {
-                        newVal = Convert.ChangeType(commandBlock.ParameterFields[0].GetValue(), commandBlock.Field.FieldType);
+                        newVal = Convert.ChangeType(commandBlock.ParameterFields[0].GetValue(), commandBlock.Field.GetType());
                     }
                     
-                    commandBlock.Field.SetValue(null,newVal );
+                    commandBlock.Field.SetValue(newVal);
                     return true;
                 }
                 catch (Exception e) {
@@ -627,21 +627,22 @@ namespace Holylib.DebugConsole {
             public string MethodName { get; private set; }
             public DebugGroupStyle GroupStyle{ get; private set; }
             public bool IsPinned => _pinnedBlocks.Contains(MethodName);
-            public FieldInfo Field { get; private set; }
+            public VariableField Field { get; private set; }
             public ParameterInfo[] Parameters { get; private set; }
             public int ParameterLength => Mathf.Max(ParameterFields?.Count ?? 0,Parameters?.Length ?? 0);
             public List<ParameterField> ParameterFields;
             public VisualElement VisualBlock;
             public VisualElement ParameterParent;
             public Label VariableFieldText;
+            
 
             public void Initialize(DebugCommandRegistry.MethodGroup methodGroup) {
                 bool isVariableField = methodGroup.method == null;
                 
-                MethodName = !isVariableField ? methodGroup.method.Name : methodGroup.field.Name;
+                MethodName = !isVariableField ? methodGroup.method.Name : methodGroup.field?.Name ?? methodGroup.property.Name;
                 GroupStyle = methodGroup.group;
                 Parameters = !isVariableField ? methodGroup.method.GetParameters() : Array.Empty<ParameterInfo>();
-                Field = isVariableField ?  methodGroup.field : null;
+                Field = isVariableField ? new VariableField(methodGroup.field,methodGroup.property) : null;
                 _createVisualBlock();
                 RefreshVariable();
 
@@ -704,11 +705,37 @@ namespace Holylib.DebugConsole {
 
             public void RefreshVariable() {
                 if(VariableFieldText != null)
-                    VariableFieldText.text = Field != null ? Field.GetValue(null).ToString() : "";
+                    VariableFieldText.text = Field != null ? Field.GetValue().ToString() : "";
             }
 
             public override string ToString() {
                 return $"{MethodName}-{GroupStyle.Name}";
+            }
+        }
+        
+        private class VariableField {
+            private FieldInfo _field;
+            private PropertyInfo _property;
+            
+            public VariableField(FieldInfo field, PropertyInfo property) {
+                _field = field;
+                _property = property;
+            }
+
+            public Type GetType() {
+                return _field != null ? _field.FieldType : _property.PropertyType;
+            }
+
+            public object GetValue() {
+                return _field != null ? _field.GetValue(null) : _property.GetValue(null);
+            }
+
+            public void SetValue (object value) {
+                if (_field != null) {
+                    _field.SetValue(null, value);
+                } else {
+                    _property.SetValue(null, value);
+                }
             }
         }
 
@@ -874,7 +901,7 @@ namespace Holylib.DebugConsole {
 
             if (commandBlock.Field != null) {
                 
-                if (commandBlock.Field.FieldType == typeof(bool)) {
+                if (commandBlock.Field.GetType() == typeof(bool)) {
                     /*
                     parameterFields.Add(new(()=> {
                         var state = (bool)commandBlock.Field.GetValue(null);
@@ -891,7 +918,7 @@ namespace Holylib.DebugConsole {
                         SetSelectedBlockIndex(instance._visibleCommandBlocks.IndexOf(commandBlock),parameterIndex);
                     });
                 
-                    parameterFields.Add(new(()=>field.value, commandBlock.Field.FieldType,field.Focus));
+                    parameterFields.Add(new(()=>field.value, commandBlock.Field.GetType(),field.Focus));
 
                     block.Q<VisualElement>("Parameters").Add(parameterField);
                 }
@@ -1043,13 +1070,15 @@ namespace Holylib.DebugConsole {
     public static partial class DebugCommandRegistry {
         
         public struct MethodGroup {
+            public readonly PropertyInfo property;
             public readonly FieldInfo field;
             public readonly MethodInfo method;
             public DebugGroupStyle group;
-            public MethodGroup (MethodInfo method, DebugGroupStyle group, FieldInfo field) {
+            public MethodGroup (MethodInfo method, DebugGroupStyle group, FieldInfo field, PropertyInfo property) {
                 this.method = method;
                 this.group = group;
                 this.field = field;
+                this.property = property;
             }
         }
 
@@ -1071,10 +1100,10 @@ namespace Holylib.DebugConsole {
                             var attribute = method.GetCustomAttribute<DebugCommandAttribute>();
                             if (attribute != null) {
                                 if (NameToGroup.TryGetValue(attribute.Group, out DebugGroupStyle group)) {
-                                    Commands[method.Name.ToLower()] = new(method, group,null);
+                                    Commands[method.Name.ToLower()] = new(method, group,null,null);
                                 } else {
                                     NameToGroup[attribute.Group] = new DebugGroupStyle(attribute.Group, Color.white);
-                                    Commands[method.Name.ToLower()] = new(method, NameToGroup[attribute.Group],null);
+                                    Commands[method.Name.ToLower()] = new(method, NameToGroup[attribute.Group],null,null);
                                 }
                             }
                         }
