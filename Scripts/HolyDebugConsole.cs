@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
@@ -20,6 +19,7 @@ namespace Holylib.DebugConsole {
         [HideInInspector][SerializeField] private VisualTreeAsset _commandBlockParameter;
         [HideInInspector][SerializeField] private VisualTreeAsset _commandBlockGroup;
         [HideInInspector][SerializeField] private VisualTreeAsset _consoleLine;
+        [HideInInspector][SerializeField] private VisualTreeAsset _commandBlockBoolParameter;
         
         private VisualElement _root;
         private ScrollView _blocksUI;
@@ -63,7 +63,9 @@ namespace Holylib.DebugConsole {
         private void Update() {
             _outputTheQueueUpdate();
             _InputHandling();
+            _updateVariableFields();
         }
+
         protected virtual void OnDestroy() {
             instance = null;
         }
@@ -255,6 +257,25 @@ namespace Holylib.DebugConsole {
 
 
         }
+        private bool _modifyVariableCommand(CommandBlock commandBlock) {
+                try {
+
+                    object newVal;
+                    if (commandBlock.Field.FieldType == typeof(bool)) {
+                        newVal = !(bool)commandBlock.Field.GetValue(null); // if type is bool, there is no input field, it just inverts the value
+                    } else {
+                        newVal = Convert.ChangeType(commandBlock.ParameterFields[0].GetValue(), commandBlock.Field.FieldType);
+                    }
+                    
+                    commandBlock.Field.SetValue(null,newVal );
+                    return true;
+                }
+                catch (Exception e) {
+                    Debug.LogException(e);
+                    return false;
+                }
+        }
+        
         private bool _executeCommand (string input) {
             if (string.IsNullOrWhiteSpace(input)) {
                 _toggleConsole();
@@ -441,8 +462,8 @@ namespace Holylib.DebugConsole {
                     UnityEngine.LogType.Log         => HolyLogType.Log,
                     UnityEngine.LogType.Warning     => HolyLogType.Warning,
                     UnityEngine.LogType.Error       => HolyLogType.Error,
-                    UnityEngine.LogType.Assert      => HolyLogType.Assert,
-                    UnityEngine.LogType.Exception   => HolyLogType.Exception,
+                    UnityEngine.LogType.Assert      => HolyLogType.Error,
+                    UnityEngine.LogType.Exception   => HolyLogType.Error,
                     _                               => HolyLogType.None
                 };
                 
@@ -551,7 +572,7 @@ namespace Holylib.DebugConsole {
                 foreach (var parameterField in _getSelectedCommandBlock.ParameterFields) {
                     
                     if (a == SelectedParameterIndex) {
-                        parameterField.Field.Q<TextField>().Focus();
+                        parameterField.Focus();
                         break;
                     }
                     a++;
@@ -606,24 +627,40 @@ namespace Holylib.DebugConsole {
             public string MethodName { get; private set; }
             public DebugGroupStyle GroupStyle{ get; private set; }
             public bool IsPinned => _pinnedBlocks.Contains(MethodName);
+            public FieldInfo Field { get; private set; }
             public ParameterInfo[] Parameters { get; private set; }
-            public int ParameterLength => Parameters?.Length ?? 0;
+            public int ParameterLength => Mathf.Max(ParameterFields?.Count ?? 0,Parameters?.Length ?? 0);
             public List<ParameterField> ParameterFields;
             public VisualElement VisualBlock;
             public VisualElement ParameterParent;
+            public Label VariableFieldText;
 
             public void Initialize(DebugCommandRegistry.MethodGroup methodGroup) {
-                MethodName = methodGroup.method.Name;
+                bool isVariableField = methodGroup.method == null;
+                
+                MethodName = !isVariableField ? methodGroup.method.Name : methodGroup.field.Name;
                 GroupStyle = methodGroup.group;
-                Parameters = methodGroup.method.GetParameters();
+                Parameters = !isVariableField ? methodGroup.method.GetParameters() : Array.Empty<ParameterInfo>();
+                Field = isVariableField ?  methodGroup.field : null;
                 _createVisualBlock();
+                RefreshVariable();
+
+                if (isVariableField) {
+                    instance._commandBlocksToUpdate.Add(this);
+                }
             }
             
             public void RunCommand() {
 
                 instance.SetSelectedBlockIndex(instance._visibleCommandBlocks.IndexOf(this));
+
+                if (Field != null) {
+                    instance._playExecuteAnimation(VisualBlock.Children().First(), instance._modifyVariableCommand(this));
+                    RefreshVariable();
+                    return;
+                }
                 
-                if (Parameters.Length == 0) {
+                if (ParameterLength == 0) {
                     instance._playExecuteAnimation(VisualBlock.Children().First(), instance._executeCommand(MethodName));
                 } else {
                     string fullCommand = MethodName;
@@ -631,9 +668,9 @@ namespace Holylib.DebugConsole {
                     foreach (var field in ParameterFields) {
 
                         if (field.Type == typeof(string)) {
-                            fullCommand += $" \"{field.Field.value}\"";
+                            fullCommand += $" \"{field.GetValue()}\"";
                         } else {
-                            fullCommand += $" {field.Field.value}";
+                            fullCommand += $" {field.GetValue()}";
                         }
 
                     }
@@ -643,13 +680,15 @@ namespace Holylib.DebugConsole {
             }
 
             private void _createVisualBlock() {
-                if (Parameters == null || Parameters.Length <= 0) {
-                    VisualBlock = instance._instantiateRegularCommandBlock(this);
-                } else {
+                
+                if (Field != null || !(ParameterLength <= 0)) {
                     var parameterCommandBlockOutput = instance._instantiateParameterCommandBlock(this);
                     VisualBlock = parameterCommandBlockOutput.visualElement;
                     ParameterFields = parameterCommandBlockOutput.parameterFields;
                 }
+                else {
+                    VisualBlock = instance._instantiateRegularCommandBlock(this);
+                } 
 
                 VisualBlock.name = GroupStyle.Name;
 
@@ -663,8 +702,23 @@ namespace Holylib.DebugConsole {
                 VisualBlock.Children().First().style.borderLeftColor = GroupStyle.Color;
             }
 
+            public void RefreshVariable() {
+                if(VariableFieldText != null)
+                    VariableFieldText.text = Field != null ? Field.GetValue(null).ToString() : "";
+            }
+
             public override string ToString() {
                 return $"{MethodName}-{GroupStyle.Name}";
+            }
+        }
+
+        private List<CommandBlock> _commandBlocksToUpdate = new();
+        private void _updateVariableFields() {
+            
+            if(!IsConsoleOpen) return;
+            
+            foreach (var commandBlock in _commandBlocksToUpdate) {
+                commandBlock.RefreshVariable();
             }
         }
         
@@ -809,12 +863,45 @@ namespace Holylib.DebugConsole {
                 });
                 
                 
-                parameterFields.Add(new(field, parameter.ParameterType));
+                parameterFields.Add(new(() => field.value, parameter.ParameterType,field.Focus));
 
                 block.Q<VisualElement>("Parameters").Add(parameterField);
                 parameterIndex++;
             }
+            
+            // Variable Field
+            commandBlock.VariableFieldText = block.Q<Label>("VariableValue");
 
+            if (commandBlock.Field != null) {
+                
+                if (commandBlock.Field.FieldType == typeof(bool)) {
+                    /*
+                    parameterFields.Add(new(()=> {
+                        var state = (bool)commandBlock.Field.GetValue(null);
+
+                        return state.ToString();
+                    }, commandBlock.Field.FieldType,block.Focus));*/
+
+                } else {
+                    TemplateContainer parameterField = _commandBlockParameter.Instantiate();
+                    
+                    var field = parameterField.Q<TextField>("CommandBlockParameter");
+                    field.label = " ";
+                    field.RegisterCallback<FocusEvent>(evt => {
+                        SetSelectedBlockIndex(instance._visibleCommandBlocks.IndexOf(commandBlock),parameterIndex);
+                    });
+                
+                    parameterFields.Add(new(()=>field.value, commandBlock.Field.FieldType,field.Focus));
+
+                    block.Q<VisualElement>("Parameters").Add(parameterField);
+                }
+
+
+
+
+            }
+            
+            
             block.Q<Button>("Pin").clicked += () => {
                 _pinBlock(commandBlock.MethodName);
             };
@@ -827,11 +914,22 @@ namespace Holylib.DebugConsole {
         }
         
         private struct ParameterField {
-            public TextField Field;
+
+            private Action _focus;
+            private Func<string> _getValue;
             public Type Type;
-            public ParameterField(TextField field, Type type) {
-                Field = field;
+            public ParameterField(Func<string> getValueFunc, Type type,Action focus) {
+                _getValue = getValueFunc;
                 Type = type;
+                _focus = focus;
+            }
+
+            public string GetValue() {
+                return _getValue();
+            }
+
+            public void Focus() {
+                _focus.Invoke();
             }
         }
         
@@ -942,14 +1040,16 @@ namespace Holylib.DebugConsole {
         }
     }
 
-    public static class DebugCommandRegistry {
-
+    public static partial class DebugCommandRegistry {
+        
         public struct MethodGroup {
+            public readonly FieldInfo field;
             public readonly MethodInfo method;
             public DebugGroupStyle group;
-            public MethodGroup (MethodInfo method, DebugGroupStyle group) {
+            public MethodGroup (MethodInfo method, DebugGroupStyle group, FieldInfo field) {
                 this.method = method;
                 this.group = group;
+                this.field = field;
             }
         }
 
@@ -960,6 +1060,7 @@ namespace Holylib.DebugConsole {
         private static void RegisterCommands() {
             _registerStyles();
             _registerCommands();
+            _registerVariables();
         }
 
         private static void _registerCommands() {
@@ -970,10 +1071,10 @@ namespace Holylib.DebugConsole {
                             var attribute = method.GetCustomAttribute<DebugCommandAttribute>();
                             if (attribute != null) {
                                 if (NameToGroup.TryGetValue(attribute.Group, out DebugGroupStyle group)) {
-                                    Commands[method.Name.ToLower()] = new(method, group);
+                                    Commands[method.Name.ToLower()] = new(method, group,null);
                                 } else {
                                     NameToGroup[attribute.Group] = new DebugGroupStyle(attribute.Group, Color.white);
-                                    Commands[method.Name.ToLower()] = new(method, NameToGroup[attribute.Group]);
+                                    Commands[method.Name.ToLower()] = new(method, NameToGroup[attribute.Group],null);
                                 }
                             }
                         }
