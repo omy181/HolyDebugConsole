@@ -71,6 +71,7 @@ namespace Holylib.DebugConsole {
         }
         void OnEnable() {
             Application.logMessageReceivedThreaded += _handleLog;
+
         }
 
         void OnDisable() {
@@ -90,6 +91,9 @@ namespace Holylib.DebugConsole {
 
             var exitConsole = _root.Q<Button>("Exit");
             exitConsole.clicked += _toggleConsole;
+            
+            var hideShowConsole = _root.Q<Button>("HideShow");
+            hideShowConsole.clicked += _hideShowConsole;
             
             var sizeIncreaseButton = _root.Q<Button>("SizePlus");
             sizeIncreaseButton.clicked += _increaseFontSize;
@@ -115,6 +119,7 @@ namespace Holylib.DebugConsole {
             _updateCommandBlocksList();
             _preventDefaultTabBehaviour();
             _setFontSize();
+            _setConsoleVisibility();
         }
         
   #endregion
@@ -248,18 +253,17 @@ namespace Holylib.DebugConsole {
                 return true;
             }
 
-            bool success = false;
 
+            bool success;
+            
             try {
                 success = DebugCommandRegistry.TryInvoke(input);
             }
-            catch {
+            catch (Exception e) {
+                Debug.LogWarning($"Command not found: {input}, Exception: {e}");
                 success = false;
             }
-
-            if (!success)
-                OutputToConsole($"Command not found: {input}", LogType.Warning);
-
+            
             return success;
         }
 
@@ -294,6 +298,23 @@ namespace Holylib.DebugConsole {
             _logCounts.Clear();
             _outputString = "";
             _outputText.text = _outputString;
+        }
+        private const string ConsoleVisibilityPlayerPref = "IsConsoleVisible";
+
+        private void _hideShowConsole() {
+            bool isVisible = PlayerPrefs.GetInt(ConsoleVisibilityPlayerPref, 1) == 1  ? true : false;
+            isVisible = !isVisible;
+            PlayerPrefs.SetInt(ConsoleVisibilityPlayerPref, isVisible ? 1 : 0);
+
+            _setConsoleVisibility();
+        }
+
+        private void _setConsoleVisibility() {
+            bool isVisible = PlayerPrefs.GetInt(ConsoleVisibilityPlayerPref, 1) == 1  ? true : false;
+            _root.Q<ScrollView>("ConsoleView").style.visibility = isVisible ? Visibility.Visible : Visibility.Hidden;
+            
+            var hideShowConsole = _root.Q<Button>("HideShow");
+            hideShowConsole.text = isVisible ? "Hide Console" : "Show Console";
         }
 
         private void _copyConsoleToClipboard() {
@@ -468,7 +489,6 @@ namespace Holylib.DebugConsole {
                 return $"{MethodName}-{GroupStyle.Name}";
             }
         }
-        
         
         #region Visuals
         private void _instantiateCommandBlocks() {
@@ -669,7 +689,7 @@ namespace Holylib.DebugConsole {
         private void _savePins() {
             string condensedPins = "";
             foreach (var pins in _pinnedBlocks) {
-                condensedPins += $"{pins}_";
+                condensedPins += $"{pins}%";
             }
 
             if (condensedPins.Length != 0)
@@ -684,7 +704,7 @@ namespace Holylib.DebugConsole {
 
             if (condensedPins.Length == 0) return;
 
-            foreach (var pins in condensedPins.Split('_')) {
+            foreach (var pins in condensedPins.Split('%')) {
                 _pinnedBlocks.Add(pins);
             }
         }
@@ -809,7 +829,7 @@ namespace Holylib.DebugConsole {
             if (input.Length == 0) return false;
 
             if (input.Count(c => c == '"') % 2 != 0) {
-                HolyDebugConsole.OutputToConsole($"Your quotation count doesn't make sense", LogType.Warning);
+                Debug.LogWarning($"Your quotation count doesn't make sense");
                 return false;
             }
 
@@ -857,7 +877,7 @@ namespace Holylib.DebugConsole {
 
             var parameters = methodGroup.method.GetParameters();
             if (tokens.Count - 1 != parameters.Length) {
-                HolyDebugConsole.OutputToConsole($"Expected {parameters.Length} arguments but got {tokens.Count - 1}.", LogType.Warning);
+                Debug.LogWarning($"Expected {parameters.Length} arguments but got {tokens.Count - 1}.");
                 return false;
             }
 
@@ -867,7 +887,7 @@ namespace Holylib.DebugConsole {
                     parsedArgs[i] = Convert.ChangeType(tokens[i + 1], parameters[i].ParameterType);
                 }
                 catch {
-                    HolyDebugConsole.OutputToConsole($"Failed to parse argument '{tokens[i + 1]}' as {parameters[i].ParameterType.Name}.", LogType.Warning);
+                    Debug.LogWarning($"Failed to parse argument '{tokens[i + 1]}' as {parameters[i].ParameterType.Name}.");
                     return false;
                 }
             }
@@ -875,7 +895,6 @@ namespace Holylib.DebugConsole {
             methodGroup.method.Invoke(null, parsedArgs);
             return true;
         }
-
     }
     #endregion
 
