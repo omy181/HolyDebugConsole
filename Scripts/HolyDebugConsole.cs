@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
@@ -18,12 +19,13 @@ namespace Holylib.DebugConsole {
         [HideInInspector][SerializeField] private VisualTreeAsset _parameterCommandBlock;
         [HideInInspector][SerializeField] private VisualTreeAsset _commandBlockParameter;
         [HideInInspector][SerializeField] private VisualTreeAsset _commandBlockGroup;
-  
+        [HideInInspector][SerializeField] private VisualTreeAsset _consoleLine;
+        
         private VisualElement _root;
         private ScrollView _blocksUI;
         private TextField _searchField;
         private Label _commandList;
-        private static Label _outputText;
+        private ScrollView _consoleView;
         
         private UIDocument _uiDocument => GetComponent<UIDocument>();
 #endregion
@@ -34,12 +36,8 @@ namespace Holylib.DebugConsole {
         public Action<bool> OnConsoleToggled;
         public void ExecuteLastCommand() => _executeCommand(_searchField.value);
         public void ExecuteCommand (string input) => _executeCommand(input);
-        public static void OutputToConsole (string message, LogType type = LogType.Log) {
-            var key = (message, type);
-
-            if (!_logCounts.TryAdd(key, 1))
-                _logCounts[key]++;
-
+        public static void OutputToConsole (LogElement logElement) {
+            _logs.Add(logElement);
             _refreshOutput();
         }
 
@@ -81,13 +79,10 @@ namespace Holylib.DebugConsole {
             _root = _uiDocument.rootVisualElement;
             _root.style.display = DisplayStyle.None;
 
-            _outputText = _root.Q<Label>("ConsoleText");
-
+            _consoleView = instance._root.Q<ScrollView>("ConsoleView");
+            
             var clearConsoleButton = _root.Q<Button>("ClearConsole");
             clearConsoleButton.clicked += _clearConsole;
-
-            var copyConsoleButton = _root.Q<Button>("ClipboardConsole");
-            copyConsoleButton.clicked += _copyConsoleToClipboard;
 
             var exitConsole = _root.Q<Button>("Exit");
             exitConsole.clicked += _toggleConsole;
@@ -100,6 +95,9 @@ namespace Holylib.DebugConsole {
             
             var sizeDecreaseButton = _root.Q<Button>("SizeMinus");
             sizeDecreaseButton.clicked += _decreaseFontSize;
+            
+            var collapseConsole = _root.Q<Button>("CollapseConsole");
+            collapseConsole.clicked += _collapseToggleConsole;
             
             _blocksUI = _root.Q<ScrollView>("Blocks");
 
@@ -120,6 +118,7 @@ namespace Holylib.DebugConsole {
             _preventDefaultTabBehaviour();
             _setFontSize();
             _setConsoleVisibility();
+            _setConsoleCollapse();
         }
         
   #endregion
@@ -218,12 +217,11 @@ namespace Holylib.DebugConsole {
         #region Console
         
         private string _commandListString;
-        private static string _outputString;
         private void _outputTheQueueUpdate() {
             lock (_logQueue) {
                 while (_logQueue.Count > 0) {
-                    var (message, type) = _logQueue.Dequeue();
-                    OutputToConsole(message, type);
+                    var logeElement = _logQueue.Dequeue();
+                    OutputToConsole(logeElement);
                 }
             }
         }
@@ -267,37 +265,39 @@ namespace Holylib.DebugConsole {
             return success;
         }
 
-        private static readonly Dictionary<(string message, LogType type), int> _logCounts
-            = new Dictionary<(string, LogType), int>();
+        private static readonly List<LogElement> _logs = new List<LogElement>();
         
         private static void _refreshOutput() {
-            System.Text.StringBuilder sb = new System.Text.StringBuilder();
 
-            foreach (var entry in _logCounts) {
-                string colorStart = "";
-                string colorEnd = "";
+            instance._consoleView.Clear();
 
-                if (entry.Key.type == LogType.Error || entry.Key.type == LogType.Assert || entry.Key.type == LogType.Exception) {
-                    colorStart = "<color=\"red\">";
-                    colorEnd = "</color>";
-                } else if (entry.Key.type == LogType.Warning) {
-                    colorStart = "<color=\"yellow\">";
-                    colorEnd = "</color>";
+            bool isCollapse = PlayerPrefs.GetInt(ConsoleCollapsePlayerPref,0) == 1 ? true : false;
+            
+            Dictionary<LogElement, int> logCounts = new();
+            foreach (var entry in _logs) {
+
+                if (isCollapse) {
+                    if (!logCounts.TryAdd(entry,1)) {
+                        logCounts[entry]++;
+                    }
+                } else {
+                    instance._instantiateConsoleLine(entry);
                 }
-
-                if (entry.Value > 1)
-                    sb.AppendLine($"> ({entry.Value}) {colorStart}{entry.Key.message}{colorEnd}");
-                else
-                    sb.AppendLine($"> {colorStart}{entry.Key.message}{colorEnd}");
             }
 
-            _outputText.text = sb.ToString();
+            if (isCollapse) {
+                foreach (var key in logCounts) {
+                    instance._instantiateConsoleLine(key.Key,key.Value);
+                }
+            }
+            
+            
+            instance._setFontSize();
         }
 
         private void _clearConsole() {
-            _logCounts.Clear();
-            _outputString = "";
-            _outputText.text = _outputString;
+            _logs.Clear();
+            _refreshOutput();
         }
         private const string ConsoleVisibilityPlayerPref = "IsConsoleVisible";
 
@@ -316,41 +316,147 @@ namespace Holylib.DebugConsole {
             var hideShowConsole = _root.Q<Button>("HideShow");
             hideShowConsole.text = isVisible ? "Hide Console" : "Show Console";
         }
+        
+        private const string ConsoleCollapsePlayerPref = "IsConsoleCollapsed";
 
-        private void _copyConsoleToClipboard() {
-            GUIUtility.systemCopyBuffer = _outputText.text;
-            Debug.Log("Copied to clipboard");
+        private void _collapseToggleConsole() {
+            bool isCollapsed = PlayerPrefs.GetInt(ConsoleCollapsePlayerPref, 0) == 1  ? true : false;
+            isCollapsed = !isCollapsed;
+            PlayerPrefs.SetInt(ConsoleCollapsePlayerPref, isCollapsed ? 1 : 0);
+
+            _setConsoleCollapse();
         }
 
-        private readonly int _defaultFontSize = 14;
-        private const string Fontplayerpref = "DebugConsoleFontSize";
+        private void _setConsoleCollapse() {
+            bool isCollapsed = PlayerPrefs.GetInt(ConsoleCollapsePlayerPref, 0) == 1  ? true : false;
 
-        private void _setFontSize() {
-            int fontSize = PlayerPrefs.GetInt(Fontplayerpref, _defaultFontSize);
-            _outputText.style.fontSize = fontSize;
-        }
-        private void _increaseFontSize() {
-            int fontSize = PlayerPrefs.GetInt(Fontplayerpref, _defaultFontSize);
-            fontSize = Mathf.Clamp(fontSize+1,5,60);
-            _outputText.style.fontSize = fontSize;
-            PlayerPrefs.SetInt(Fontplayerpref, fontSize);
+            var collapseConsole = _root.Q<Button>("CollapseConsole");
+            collapseConsole.text = isCollapsed ? "UnCollapse Console" : "Collapse Console";
+            _refreshOutput();
         }
         
+
+        private readonly int _defaultFontSize = 14;
+        private const string FontPlayerPref = "DebugConsoleFontSize";
+
+        private List<(VisualElement element, float ratio)> _trackedFontSizeElements = new();
+        
+        private void _trackFontSizeElement(VisualElement element) {
+            var textElements = element.Query(className: "unity-text-element").ToList();
+    
+            // If no text children found, track the element itself
+            var targets = textElements.Count > 0 ? textElements : new List<VisualElement> { element };
+
+            foreach (var target in targets) {
+                float ratio = target.resolvedStyle.fontSize / _defaultFontSize;
+                _trackedFontSizeElements.Add((target, ratio));
+            }
+
+            element.RegisterCallback<DetachFromPanelEvent>(_ =>
+                    _trackedFontSizeElements.RemoveAll(entry => targets.Contains(entry.element))
+                );
+        }
+
+        private void _applyFontSize() {
+            int fontSize = PlayerPrefs.GetInt(FontPlayerPref, _defaultFontSize);
+            foreach (var (element, ratio) in _trackedFontSizeElements) {
+                element.style.fontSize = Mathf.RoundToInt(fontSize * ratio);
+            }
+        }
+
+        private void _setFontSize() {
+            _applyFontSize();
+        }
+
+        private void _increaseFontSize() {
+            int fontSize = PlayerPrefs.GetInt(FontPlayerPref, _defaultFontSize);
+            fontSize = Mathf.Clamp(fontSize + 1, 10, 60);
+            PlayerPrefs.SetInt(FontPlayerPref, fontSize);
+            _applyFontSize();
+        }
+
         private void _decreaseFontSize() {
-            int fontSize = PlayerPrefs.GetInt(Fontplayerpref, _defaultFontSize);
-            fontSize = Mathf.Clamp(fontSize-1,5,60);
-            _outputText.style.fontSize = fontSize;
-            PlayerPrefs.SetInt(Fontplayerpref, fontSize);
+            int fontSize = PlayerPrefs.GetInt(FontPlayerPref, _defaultFontSize);
+            fontSize = Mathf.Clamp(fontSize - 1, 10, 60);
+            PlayerPrefs.SetInt(FontPlayerPref, fontSize);
+            _applyFontSize();
         }
         
         private void _handleLog (string logString, string stackTrace, LogType type) {
             lock (_logQueue) {
-                _logQueue.Enqueue((logString, type));
+                _logQueue.Enqueue(new LogElement(logString,stackTrace, type));
             }
         }
 
-        private readonly Queue<(string, LogType)> _logQueue = new Queue<(string, LogType)>();
+        private readonly Queue<LogElement> _logQueue = new Queue<LogElement>();
         
+        public struct LogElement {
+            public readonly string message;
+            public readonly string stackTrace;
+            public readonly LogType type;
+            public LogElement(string message,string stackTrace, LogType type) {
+                this.message = message;
+                this.type = type;
+                this.stackTrace = stackTrace;
+            }
+        }
+        
+        #region Console Visualisation
+
+        private void _instantiateConsoleLine(LogElement logElement,int count = 1) {
+            
+            string colorStart = "";
+            string colorEnd = "";
+
+            if (logElement.type == LogType.Error || logElement.type == LogType.Assert || logElement.type == LogType.Exception) {
+                colorStart = "<color=\"red\">";
+                colorEnd = "</color>";
+            } else if (logElement.type == LogType.Warning) {
+                colorStart = "<color=\"yellow\">";
+                colorEnd = "</color>";
+            }
+                
+            string coloredMessage = ($"{colorStart}{logElement.message}{colorEnd}");
+
+            var logLine = _consoleLine.Instantiate();
+            
+            logLine.Q<Label>("MainDebugText").text = coloredMessage;
+            var stackTraceField = logLine.Q<TextField>("DebugTextStackTrace");
+            stackTraceField.value = logElement.stackTrace;
+            
+            _root.Q<VisualElement>("ConsoleView").Add(logLine);
+
+
+            if (count > 1) {
+                logLine.Q<Label>("Count").text = count.ToString();
+            } else {
+                logLine.Q<Label>("Count").text = "";
+            }
+            
+            
+            stackTraceField.style.display = DisplayStyle.None;
+            
+            logLine.RegisterCallback<ClickEvent>(evt => {
+                if (!stackTraceField.Contains(evt.target as VisualElement)) {
+                    if (stackTraceField.style.display == DisplayStyle.None) {
+                        stackTraceField.style.display = DisplayStyle.Flex;
+                        stackTraceField.Focus();
+                    } else {
+                        stackTraceField.style.display = DisplayStyle.None;
+                    }
+                }
+            });
+            
+            stackTraceField.RegisterCallback<BlurEvent>(evt => {
+                stackTraceField.style.display = DisplayStyle.None;
+            });
+            
+
+            _trackFontSizeElement(logLine);
+        }
+        
+        
+            #endregion
 
   #endregion
         

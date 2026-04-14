@@ -1,8 +1,8 @@
 :root {
     --accent-color: rgb(219, 149, 38);
     --accent-dark-color: rgb(136, 77, 10);
-    --error-color: rgb(236 20 11);
-    --error-dark-color: rgb(195 45 1);
+    --error-color: rgb(236, 20, 11);
+    --error-dark-color: rgb(195, 45, 1);
 }
 
 #unity-text-input {
@@ -55,6 +55,22 @@
     border-bottom-right-radius: 8px;
     border-bottom-left-radius: 8px;
     border-top-right-radius: 8px;
+}
+
+#ConsoleLine:hover {
+    border-left-color: var(--accent-color);
+    border-left-width: 6px;
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-top-color: var(--accent-color);
+    border-bottom-color: var(--accent-color);
+    transition-property: all, translate;
+    transition-duration: 0.1s, 0.2s;
+    transition-timing-function: ease, ease;
+    transition-delay: 0s, 0s;
+    transform-origin: left;
+    border-top-width: 0;
+    border-bottom-width: 0;
 }
 
 .command-block {
