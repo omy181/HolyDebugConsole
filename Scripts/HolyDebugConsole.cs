@@ -27,9 +27,6 @@ namespace Holylib.DebugConsole {
         private bool _verbose = true;
         
         [SerializeField]
-        private bool _subscribeToConsole = true;
-
-        [SerializeField]
         private string _rootScriptableObjectsFolder = "Assets"; 
         
         [Header("Search Spaces")]
@@ -74,14 +71,6 @@ namespace Holylib.DebugConsole {
             if (!_logCounts.TryAdd(key, 1))
                 _logCounts[key]++;
 
-
-            if (type is LogType.Error or LogType.Exception or LogType.Warning)
-            {
-                if (instance._subscribeToConsole) Application.logMessageReceivedThreaded -= instance._handleLog;
-                Debug.LogError(message);
-                if (instance._subscribeToConsole) Application.logMessageReceivedThreaded += instance._handleLog;
-            }
-            
             _refreshOutput();
         }
 
@@ -112,17 +101,12 @@ namespace Holylib.DebugConsole {
             instance = null;
         }
         void OnEnable() {
-            if (_subscribeToConsole)
-            {
-                Application.logMessageReceivedThreaded += _handleLog;
-            }
+            Application.logMessageReceivedThreaded += _handleLog;
+
         }
 
         void OnDisable() {
-            if (_subscribeToConsole)
-            {
-                Application.logMessageReceived -= _handleLog;
-            }
+            Application.logMessageReceived -= _handleLog;
         }
         private void _initialize() {
             _root = _uiDocument.rootVisualElement;
@@ -817,6 +801,8 @@ namespace Holylib.DebugConsole {
 
         private static void _registerCommands() {
             Stopwatch stopwatch = Stopwatch.StartNew();
+            
+            // Static Methods
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 // If static assemblies list is empty then search every assembly, fine for static methods
@@ -832,10 +818,6 @@ namespace Holylib.DebugConsole {
 
                 if (!isIncluded) continue;
                 
-                if (assembly.GetName().Name != "Core")
-                {
-                    continue;
-                }
                 foreach (Type type in assembly.GetTypes()) {
                     foreach (MethodInfo method in type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)) {
                         try {
@@ -856,6 +838,7 @@ namespace Holylib.DebugConsole {
                 }
             }
             
+            // Non-Static Methods
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 bool isIncluded = false;
@@ -1003,7 +986,7 @@ namespace Holylib.DebugConsole {
 
             var parameters = methodGroup.method.GetParameters();
             if (tokens.Count - 1 != parameters.Length) {
-                HolyDebugConsole.OutputToConsole($"Expected {parameters.Length} arguments but got {tokens.Count - 1}.", LogType.Warning);
+                Debug.LogWarning($"Expected {parameters.Length} arguments but got {tokens.Count - 1}.");
                 return false;
             }
 
@@ -1013,7 +996,7 @@ namespace Holylib.DebugConsole {
                     parsedArgs[i] = Convert.ChangeType(tokens[i + 1], parameters[i].ParameterType);
                 }
                 catch {
-                    HolyDebugConsole.OutputToConsole($"Failed to parse argument '{tokens[i + 1]}' as {parameters[i].ParameterType.Name}.", LogType.Warning);
+                    Debug.LogWarning($"Failed to parse argument '{tokens[i + 1]}' as {parameters[i].ParameterType.Name}.");
                     return false;
                 }
             }
