@@ -23,14 +23,15 @@ public readonly struct DebugGroupStyle {
         Color = color;
     }
 }
-}
 
 [Flags]
-public enum LogType {
+public enum HolyLogType {
     None    = 0,
     Log    = 1 << 0,
     Warning = 1 << 1,
     Error   = 1 << 2,
     Assert  = 1 << 3,
     Exception = 1 << 4,
+}
+
 }

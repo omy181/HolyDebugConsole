@@ -100,13 +100,13 @@ namespace Holylib.DebugConsole {
             collapseConsole.clicked += _collapseToggleConsole;
             
             var hideLog = _root.Q<Button>("LogHide");
-            hideLog.clicked += ()=>_toggleLogHide(LogType.Log);
+            hideLog.clicked += ()=>_toggleLogHide(HolyLogType.Log);
             
             var hideWarning = _root.Q<Button>("WarningHide");
-            hideWarning.clicked += ()=>_toggleLogHide(LogType.Warning);
+            hideWarning.clicked += ()=>_toggleLogHide(HolyLogType.Warning);
             
             var hideError = _root.Q<Button>("ErrorHide");
-            hideError.clicked += ()=>_toggleLogHide(LogType.Error);
+            hideError.clicked += ()=>_toggleLogHide(HolyLogType.Error);
             
             _blocksUI = _root.Q<ScrollView>("Blocks");
 
@@ -349,10 +349,10 @@ namespace Holylib.DebugConsole {
         
         private const string _logHidePlayerPref = "LogHideValue";
         
-        private void _toggleLogHide(LogType logType) {
+        private void _toggleLogHide(HolyLogType holyLogType) {
             int state = PlayerPrefs.GetInt(_logHidePlayerPref, 0);
             
-            PlayerPrefs.SetInt(_logHidePlayerPref,state ^ (int)logType );
+            PlayerPrefs.SetInt(_logHidePlayerPref,state ^ (int)holyLogType );
             
             _setLogButtons();
             
@@ -361,30 +361,30 @@ namespace Holylib.DebugConsole {
 
         private void _setLogButtons() {
             var hideLog = _root.Q<Button>("LogHide");
-            if (_isTypeHidden(LogType.Log)) {
+            if (_isTypeHidden(HolyLogType.Log)) {
                 hideLog.AddToClassList("log-button-pseudo-selected");
             } else {
                 hideLog.RemoveFromClassList("log-button-pseudo-selected");
             }
 
             var hideWarning = _root.Q<Button>("WarningHide");
-            if (_isTypeHidden(LogType.Warning)) {
+            if (_isTypeHidden(HolyLogType.Warning)) {
                 hideWarning.AddToClassList("log-button-pseudo-selected");
             } else {
                 hideWarning.RemoveFromClassList("log-button-pseudo-selected");
             }
             
             var hideError = _root.Q<Button>("ErrorHide");
-            if (_isTypeHidden(LogType.Error)) {
+            if (_isTypeHidden(HolyLogType.Error)) {
                 hideError.AddToClassList("log-button-pseudo-selected");
             } else {
                 hideError.RemoveFromClassList("log-button-pseudo-selected");
             }
         }
         
-        private bool _isTypeHidden(LogType logType) {
+        private bool _isTypeHidden(HolyLogType holyLogType) {
             int state = PlayerPrefs.GetInt(_logHidePlayerPref, 0);
-           return (state & (int)logType) != 0;
+           return (state & (int)holyLogType) != 0;
         }
 
         private readonly int _defaultFontSize = 14;
@@ -438,12 +438,12 @@ namespace Holylib.DebugConsole {
                 
                 var customType = type switch
                 {
-                    UnityEngine.LogType.Log         => LogType.Log,
-                    UnityEngine.LogType.Warning     => LogType.Warning,
-                    UnityEngine.LogType.Error       => LogType.Error,
-                    UnityEngine.LogType.Assert      => LogType.Assert,
-                    UnityEngine.LogType.Exception   => LogType.Exception,
-                    _                               => LogType.None
+                    UnityEngine.LogType.Log         => HolyLogType.Log,
+                    UnityEngine.LogType.Warning     => HolyLogType.Warning,
+                    UnityEngine.LogType.Error       => HolyLogType.Error,
+                    UnityEngine.LogType.Assert      => HolyLogType.Assert,
+                    UnityEngine.LogType.Exception   => HolyLogType.Exception,
+                    _                               => HolyLogType.None
                 };
                 
                 
@@ -456,9 +456,9 @@ namespace Holylib.DebugConsole {
         public struct LogElement {
             public readonly string message;
             public readonly string stackTrace;
-            public readonly LogType type;
+            public readonly HolyLogType type;
             public readonly string time;
-            public LogElement(string message,string stackTrace, LogType type,string time) {
+            public LogElement(string message,string stackTrace, HolyLogType type,string time) {
                 this.message = message;
                 this.type = type;
                 this.stackTrace = stackTrace;
@@ -474,11 +474,11 @@ namespace Holylib.DebugConsole {
             string colorEnd = "";
             Color logColor = Color.white;
 
-            if (logElement.type == LogType.Error || logElement.type == LogType.Assert || logElement.type == LogType.Exception) {
+            if (logElement.type == HolyLogType.Error || logElement.type == HolyLogType.Assert || logElement.type == HolyLogType.Exception) {
                 colorStart = "<color=\"red\">";
                 colorEnd = "</color>";
                 logColor =  Color.red;
-            } else if (logElement.type == LogType.Warning) {
+            } else if (logElement.type == HolyLogType.Warning) {
                 colorStart = "<color=\"yellow\">";
                 colorEnd = "</color>";
                 logColor = Color.yellow;
