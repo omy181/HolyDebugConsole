@@ -217,3 +217,16 @@
     transition-timing-function: ease-in;
     translate: 6px 0;
 }
+
+.log-button-pseudo-selected {
+    border-top-color: var(--accent-color);
+    border-top-width: 1px;
+    border-bottom-color: var(--accent-color);
+    border-bottom-width: 3px;
+    border-right-color: var(--accent-color);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-left-color: var(--accent-color);
+    translate: 0 3px;
+    transition-duration: 0.3s;
+}

@@ -99,6 +99,15 @@ namespace Holylib.DebugConsole {
             var collapseConsole = _root.Q<Button>("CollapseConsole");
             collapseConsole.clicked += _collapseToggleConsole;
             
+            var hideLog = _root.Q<Button>("LogHide");
+            hideLog.clicked += ()=>_toggleLogHide(LogType.Log);
+            
+            var hideWarning = _root.Q<Button>("WarningHide");
+            hideWarning.clicked += ()=>_toggleLogHide(LogType.Warning);
+            
+            var hideError = _root.Q<Button>("ErrorHide");
+            hideError.clicked += ()=>_toggleLogHide(LogType.Error);
+            
             _blocksUI = _root.Q<ScrollView>("Blocks");
 
             _searchField = _root.Q<TextField>("SearchBar");
@@ -119,6 +128,7 @@ namespace Holylib.DebugConsole {
             _setFontSize();
             _setConsoleVisibility();
             _setConsoleCollapse();
+            _setLogButtons();
         }
         
   #endregion
@@ -281,13 +291,15 @@ namespace Holylib.DebugConsole {
                         logCounts[entry]++;
                     }
                 } else {
-                    instance._instantiateConsoleLine(entry);
+                    if(!instance._isTypeHidden(entry.type))
+                        instance._instantiateConsoleLine(entry);
                 }
             }
 
             if (isCollapse) {
                 foreach (var key in logCounts) {
-                    instance._instantiateConsoleLine(key.Key,key.Value);
+                    if(!instance._isTypeHidden(key.Key.type))
+                        instance._instantiateConsoleLine(key.Key,key.Value);
                 }
             }
             
@@ -335,6 +347,45 @@ namespace Holylib.DebugConsole {
             _refreshOutput();
         }
         
+        private const string _logHidePlayerPref = "LogHideValue";
+        
+        private void _toggleLogHide(LogType logType) {
+            int state = PlayerPrefs.GetInt(_logHidePlayerPref, 0);
+            
+            PlayerPrefs.SetInt(_logHidePlayerPref,state ^ (int)logType );
+            
+            _setLogButtons();
+            
+            _refreshOutput();
+        }
+
+        private void _setLogButtons() {
+            var hideLog = _root.Q<Button>("LogHide");
+            if (_isTypeHidden(LogType.Log)) {
+                hideLog.AddToClassList("log-button-pseudo-selected");
+            } else {
+                hideLog.RemoveFromClassList("log-button-pseudo-selected");
+            }
+
+            var hideWarning = _root.Q<Button>("WarningHide");
+            if (_isTypeHidden(LogType.Warning)) {
+                hideWarning.AddToClassList("log-button-pseudo-selected");
+            } else {
+                hideWarning.RemoveFromClassList("log-button-pseudo-selected");
+            }
+            
+            var hideError = _root.Q<Button>("ErrorHide");
+            if (_isTypeHidden(LogType.Error)) {
+                hideError.AddToClassList("log-button-pseudo-selected");
+            } else {
+                hideError.RemoveFromClassList("log-button-pseudo-selected");
+            }
+        }
+        
+        private bool _isTypeHidden(LogType logType) {
+            int state = PlayerPrefs.GetInt(_logHidePlayerPref, 0);
+           return (state & (int)logType) != 0;
+        }
 
         private readonly int _defaultFontSize = 14;
         private const string FontPlayerPref = "DebugConsoleFontSize";
@@ -382,9 +433,21 @@ namespace Holylib.DebugConsole {
             _applyFontSize();
         }
         
-        private void _handleLog (string logString, string stackTrace, LogType type) {
+        private void _handleLog (string logString, string stackTrace, UnityEngine.LogType type) {
             lock (_logQueue) {
-                _logQueue.Enqueue(new LogElement(logString,stackTrace, type));
+                
+                var customType = type switch
+                {
+                    UnityEngine.LogType.Log         => LogType.Log,
+                    UnityEngine.LogType.Warning     => LogType.Warning,
+                    UnityEngine.LogType.Error       => LogType.Error,
+                    UnityEngine.LogType.Assert      => LogType.Assert,
+                    UnityEngine.LogType.Exception   => LogType.Exception,
+                    _                               => LogType.None
+                };
+                
+                
+                _logQueue.Enqueue(new LogElement(logString,stackTrace, customType,DateTime.Now.ToShortTimeString()));
             }
         }
 
@@ -394,10 +457,12 @@ namespace Holylib.DebugConsole {
             public readonly string message;
             public readonly string stackTrace;
             public readonly LogType type;
-            public LogElement(string message,string stackTrace, LogType type) {
+            public readonly string time;
+            public LogElement(string message,string stackTrace, LogType type,string time) {
                 this.message = message;
                 this.type = type;
                 this.stackTrace = stackTrace;
+                this.time = time;
             }
         }
         
@@ -407,18 +472,25 @@ namespace Holylib.DebugConsole {
             
             string colorStart = "";
             string colorEnd = "";
+            Color logColor = Color.white;
 
             if (logElement.type == LogType.Error || logElement.type == LogType.Assert || logElement.type == LogType.Exception) {
                 colorStart = "<color=\"red\">";
                 colorEnd = "</color>";
+                logColor =  Color.red;
             } else if (logElement.type == LogType.Warning) {
                 colorStart = "<color=\"yellow\">";
                 colorEnd = "</color>";
+                logColor = Color.yellow;
             }
                 
             string coloredMessage = ($"{colorStart}{logElement.message}{colorEnd}");
 
             var logLine = _consoleLine.Instantiate();
+            
+            logLine.Q<Label>("Time").text = logElement.time;
+
+            logLine.Q<VisualElement>("Icon").style.unityBackgroundImageTintColor = new StyleColor(logColor);
             
             logLine.Q<Label>("MainDebugText").text = coloredMessage;
             var stackTraceField = logLine.Q<TextField>("DebugTextStackTrace");
