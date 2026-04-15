@@ -18,7 +18,7 @@ namespace Holylib.DebugConsole {
                             if (attribute != null) {
                                 NameToVariable.TryAdd(field.Name,field);
                                 
-                                Commands.TryAdd(field.Name,new MethodGroup(null,NameToGroup[attribute.Group],field,null));
+                                Commands.TryAdd(field.Name,new MethodGroup(null,NameToGroup[attribute.Group],field,null,attribute.IsReadOnly));
                             }
                         }
                         catch (Exception e) {
@@ -32,7 +32,7 @@ namespace Holylib.DebugConsole {
                             if (attribute != null) {
                                 NameToProperty.TryAdd(property.Name,property);
                                 
-                                Commands.TryAdd(property.Name,new MethodGroup(null,NameToGroup[attribute.Group],null,property));
+                                Commands.TryAdd(property.Name,new MethodGroup(null,NameToGroup[attribute.Group],null,property,attribute.IsReadOnly));
                             }
                         }
                         catch (Exception e) {
@@ -48,8 +48,15 @@ namespace Holylib.DebugConsole {
     [System.AttributeUsage(System.AttributeTargets.Field| System.AttributeTargets.Property)]
     public class DebugVariableAttribute : System.Attribute {
         public string Group { get; }
-        public DebugVariableAttribute (string group) {
+        public bool IsReadOnly { get; }
+        public DebugVariableAttribute (string group,bool isReadOnly = false) {
             Group = group;
+            IsReadOnly  = isReadOnly;
+        }
+        
+        public DebugVariableAttribute(bool isReadOnly) {
+            Group = HolyDebugGroupStyles.Uncategorized;
+            IsReadOnly  = isReadOnly;
         }
 
         public DebugVariableAttribute() {

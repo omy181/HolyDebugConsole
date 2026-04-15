@@ -642,7 +642,7 @@ namespace Holylib.DebugConsole {
                 MethodName = !isVariableField ? methodGroup.method.Name : methodGroup.field?.Name ?? methodGroup.property.Name;
                 GroupStyle = methodGroup.group;
                 Parameters = !isVariableField ? methodGroup.method.GetParameters() : Array.Empty<ParameterInfo>();
-                Field = isVariableField ? new VariableField(methodGroup.field,methodGroup.property) : null;
+                Field = isVariableField ? new VariableField(methodGroup.field,methodGroup.property,methodGroup.isReadOnly) : null;
                 _createVisualBlock();
                 RefreshVariable();
 
@@ -656,6 +656,9 @@ namespace Holylib.DebugConsole {
                 instance.SetSelectedBlockIndex(instance._visibleCommandBlocks.IndexOf(this));
 
                 if (Field != null) {
+                    
+                    if(Field.IsReadOnly) return;
+                    
                     instance._playExecuteAnimation(VisualBlock.Children().First(), instance._modifyVariableCommand(this));
                     RefreshVariable();
                     return;
@@ -705,7 +708,7 @@ namespace Holylib.DebugConsole {
 
             public void RefreshVariable() {
                 if(VariableFieldText != null)
-                    VariableFieldText.text = Field != null ? Field.GetValue().ToString() : "";
+                    VariableFieldText.text = Field != null ? Field.GetValue()?.ToString() : "";
             }
 
             public override string ToString() {
@@ -716,10 +719,12 @@ namespace Holylib.DebugConsole {
         private class VariableField {
             private FieldInfo _field;
             private PropertyInfo _property;
+            public readonly bool IsReadOnly;
             
-            public VariableField(FieldInfo field, PropertyInfo property) {
+            public VariableField(FieldInfo field, PropertyInfo property,bool isReadOnly) {
                 _field = field;
                 _property = property;
+                IsReadOnly = isReadOnly;
             }
 
             public Type GetType() {
@@ -902,14 +907,9 @@ namespace Holylib.DebugConsole {
             if (commandBlock.Field != null) {
                 
                 if (commandBlock.Field.GetType() == typeof(bool)) {
-                    /*
-                    parameterFields.Add(new(()=> {
-                        var state = (bool)commandBlock.Field.GetValue(null);
 
-                        return state.ToString();
-                    }, commandBlock.Field.FieldType,block.Focus));*/
 
-                } else {
+                } else if(!commandBlock.Field.IsReadOnly) {
                     TemplateContainer parameterField = _commandBlockParameter.Instantiate();
                     
                     var field = parameterField.Q<TextField>("CommandBlockParameter");
@@ -1074,11 +1074,13 @@ namespace Holylib.DebugConsole {
             public readonly FieldInfo field;
             public readonly MethodInfo method;
             public DebugGroupStyle group;
-            public MethodGroup (MethodInfo method, DebugGroupStyle group, FieldInfo field, PropertyInfo property) {
+            public readonly bool isReadOnly;
+            public MethodGroup (MethodInfo method, DebugGroupStyle group, FieldInfo field, PropertyInfo property, bool isReadOnly) {
                 this.method = method;
                 this.group = group;
                 this.field = field;
                 this.property = property;
+                this.isReadOnly = isReadOnly;
             }
         }
 
@@ -1100,10 +1102,10 @@ namespace Holylib.DebugConsole {
                             var attribute = method.GetCustomAttribute<DebugCommandAttribute>();
                             if (attribute != null) {
                                 if (NameToGroup.TryGetValue(attribute.Group, out DebugGroupStyle group)) {
-                                    Commands[method.Name.ToLower()] = new(method, group,null,null);
+                                    Commands[method.Name.ToLower()] = new(method, group,null,null,false);
                                 } else {
                                     NameToGroup[attribute.Group] = new DebugGroupStyle(attribute.Group, Color.white);
-                                    Commands[method.Name.ToLower()] = new(method, NameToGroup[attribute.Group],null,null);
+                                    Commands[method.Name.ToLower()] = new(method, NameToGroup[attribute.Group],null,null,false);
                                 }
                             }
                         }
