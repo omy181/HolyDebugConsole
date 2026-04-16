@@ -16,7 +16,15 @@ namespace Holylib.DebugConsole {
                     if (attribute != null) {
                         NameToVariable.TryAdd(field.Name, field);
 
-                        Commands.TryAdd(field.Name, new MethodGroup(null, NameToGroup[attribute.Group], field, null, attribute.IsReadOnly));
+                        DebugGroupStyle style;
+                        if (NameToGroup.TryGetValue(attribute.Group, out DebugGroupStyle group)) {
+                            style = group;
+                        } else {
+                            NameToGroup[attribute.Group] = new DebugGroupStyle(attribute.Group, Color.white);
+                            style = NameToGroup[attribute.Group];
+                        }
+                        
+                        Commands.TryAdd(field.Name, new MethodGroup(null, style, field, null, attribute.IsReadOnly));
                     }
                 }
                 catch (Exception e) {
