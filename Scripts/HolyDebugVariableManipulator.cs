@@ -37,8 +37,16 @@ namespace Holylib.DebugConsole {
                     var attribute = property.GetCustomAttribute<DebugVariableAttribute>();
                     if (attribute != null) {
                         NameToProperty.TryAdd(property.Name, property);
+                        
+                        DebugGroupStyle style;
+                        if (NameToGroup.TryGetValue(attribute.Group, out DebugGroupStyle group)) {
+                            style = group;
+                        } else {
+                            NameToGroup[attribute.Group] = new DebugGroupStyle(attribute.Group, Color.white);
+                            style = NameToGroup[attribute.Group];
+                        }
 
-                        Commands.TryAdd(property.Name, new MethodGroup(null, NameToGroup[attribute.Group], null, property, attribute.IsReadOnly));
+                        Commands.TryAdd(property.Name, new MethodGroup(null, style, null, property, attribute.IsReadOnly));
                     }
                 }
                 catch (Exception e) {
