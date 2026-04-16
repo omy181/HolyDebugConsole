@@ -6,12 +6,20 @@ using System.Reflection;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
+using Debug = UnityEngine.Debug;
 
 namespace Holylib.DebugConsole {
 
     [RequireComponent(typeof(UIDocument))]
     public class HolyDebugConsole : MonoBehaviour {
-        
+
+        [Header("Settings")]
+        [Tooltip("Debug commands in unity assemblies won't show up")]
+        [field:SerializeField] public bool ExcludeUnityAssemblies { get; private set; } = true;
+        [Tooltip("Debug commands outside of CSharp assembly won't show up")]
+        [field:SerializeField] public bool OnlyIncludeCSharpAssembly { get;private set;} = true;
+
+
         #region References
         [Header("References")]
         [HideInInspector][SerializeField] private VisualTreeAsset _regularCommandBlock;
@@ -1084,55 +1092,66 @@ namespace Holylib.DebugConsole {
             }
         }
 
+        private static string[] UnityAssemblies = new []{
+            "Unity","UnityEngine","System","UnityEditor"
+        };
+
         public static Dictionary<string, DebugGroupStyle> NameToGroup = new Dictionary<string, DebugGroupStyle>();
         public static Dictionary<string, MethodGroup> Commands = new Dictionary<string, MethodGroup>();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void RegisterCommands() {
-            _registerStyles();
-            _registerCommands();
-            _registerVariables();
-        }
 
-        private static void _registerCommands() {
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies()) {
+                string assemblyName = assembly.FullName;
+
+                if (!assemblyName.StartsWith("HolyDebugConsole")) {
+                    if(HolyDebugConsole.instance.OnlyIncludeCSharpAssembly && !assemblyName.StartsWith("Assembly-CSharp")) continue;
+                    if(HolyDebugConsole.instance.ExcludeUnityAssemblies && UnityAssemblies.Any(assemblyName.StartsWith)) continue;
+                }
+
                 foreach (Type type in assembly.GetTypes()) {
-                    foreach (MethodInfo method in type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)) {
-                        try {
-                            var attribute = method.GetCustomAttribute<DebugCommandAttribute>();
-                            if (attribute != null) {
-                                if (NameToGroup.TryGetValue(attribute.Group, out DebugGroupStyle group)) {
-                                    Commands[method.Name.ToLower()] = new(method, group,null,null,false);
-                                } else {
-                                    NameToGroup[attribute.Group] = new DebugGroupStyle(attribute.Group, Color.white);
-                                    Commands[method.Name.ToLower()] = new(method, NameToGroup[attribute.Group],null,null,false);
-                                }
-                            }
-                        }
-                        catch (Exception e) {
-                            Debug.LogException(e);
-                        }
-                    }
+                    _registerStyles(type);
+                    _registerCommands(type);
+                    _registerVariables(type);
                 }
             }
         }
 
-        private static void _registerStyles() {
-            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies()) {
-                foreach (Type type in assembly.GetTypes()) {
-                    foreach (FieldInfo field in type.GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)) {
-                        try {
-                            var attribute = field.GetCustomAttribute<DebugCommandGroupAttribute>();
-                            if (attribute != null) {
-                                NameToGroup[attribute.GroupName] = (DebugGroupStyle)field.GetValue(null);
-                            }
-                        }
-                        catch (Exception e) {
-                            Debug.LogException(e);
+        private static void _registerCommands (Type type) {
+
+            foreach (MethodInfo method in type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)) {
+                try {
+                    var attribute = method.GetCustomAttribute<DebugCommandAttribute>();
+                    if (attribute != null) {
+                        if (NameToGroup.TryGetValue(attribute.Group, out DebugGroupStyle group)) {
+                            Commands[method.Name.ToLower()] = new(method, group, null, null, false);
+                        } else {
+                            NameToGroup[attribute.Group] = new DebugGroupStyle(attribute.Group, Color.white);
+                            Commands[method.Name.ToLower()] = new(method, NameToGroup[attribute.Group], null, null, false);
                         }
                     }
                 }
+                catch (Exception e) {
+                    Debug.LogException(e);
+                }
             }
+        }
+
+        private static void _registerStyles (Type type) {
+
+            foreach (FieldInfo field in type.GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)) {
+                try {
+                    var attribute = field.GetCustomAttribute<DebugCommandGroupAttribute>();
+                    if (attribute != null) {
+                        NameToGroup[attribute.GroupName] = (DebugGroupStyle)field.GetValue(null);
+                    }
+                }
+                catch (Exception e) {
+                    Debug.LogException(e);
+                }
+            }
+            
         }
 
         public static bool TryInvoke (string input) {
