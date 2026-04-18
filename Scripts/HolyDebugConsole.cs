@@ -15,7 +15,7 @@ namespace Holylib.DebugConsole {
 
         [Header("Settings")]
         [Tooltip("When calling a debug function using keybinds hold this button first")]
-        [SerializeField] private Key _debugCommandKey;
+        [SerializeField] private Key _debugCommandKey = Key.AltGr;
 
         [Tooltip("Debug commands in unity assemblies won't show up")]
         [field:SerializeField] public bool ExcludeUnityAssemblies { get; private set; } = true;
