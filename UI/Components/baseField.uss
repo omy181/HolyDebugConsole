@@ -5,7 +5,7 @@
     --error-dark-color: rgb(195, 45, 1);
 }
 
-#unity-text-input {
+.unity-base-field__input {
     background-color: rgb(26, 26, 26);
     border-top-left-radius: 8px;
     padding-left: 6px;
@@ -22,7 +22,7 @@
     --unity-cursor-color: rgb(255, 255, 255);
 }
 
-#unity-text-input:hover {
+.unity-base-field__input:hover {
     border-color: var(--accent-color);
 }
 
@@ -246,3 +246,7 @@
     background-color: rgb(24, 24, 24);
     -unity-background-image-tint-color: rgb(255, 255, 255);
 }
+
+
+
+

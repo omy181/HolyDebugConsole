@@ -22,7 +22,6 @@ namespace Holylib.DebugConsole {
 
         #region References
         [Header("References")]
-        [HideInInspector][SerializeField] private VisualTreeAsset _regularCommandBlock;
         [HideInInspector][SerializeField] private VisualTreeAsset _parameterCommandBlock;
         [HideInInspector][SerializeField] private VisualTreeAsset _commandBlockParameter;
         [HideInInspector][SerializeField] private VisualTreeAsset _commandBlockGroup;
@@ -147,6 +146,8 @@ namespace Holylib.DebugConsole {
         
         private double _lasTimeUpDownPressed;
         private void _InputHandling() {
+            
+            _keybindingInputCheck();
             
             if(!IsConsoleOpen) return;
             
@@ -565,6 +566,7 @@ namespace Holylib.DebugConsole {
 
         private List<CommandBlock> _commandBlocks = new();
         private List<CommandBlock> _visibleCommandBlocks = new();
+        private Dictionary<string, CommandBlock> _methodNameToCommandBlock = new();
 
         private bool _hasParametersInSelection =>  _getSelectedCommandBlock?.ParameterLength > 0;
         private int _visibleBlockCount;
@@ -693,14 +695,9 @@ namespace Holylib.DebugConsole {
 
             private void _createVisualBlock() {
                 
-                if (Field != null || !(ParameterLength <= 0)) {
-                    var parameterCommandBlockOutput = instance._instantiateParameterCommandBlock(this);
-                    VisualBlock = parameterCommandBlockOutput.visualElement;
-                    ParameterFields = parameterCommandBlockOutput.parameterFields;
-                }
-                else {
-                    VisualBlock = instance._instantiateRegularCommandBlock(this);
-                } 
+                var parameterCommandBlockOutput = instance._instantiateParameterCommandBlock(this);
+                VisualBlock = parameterCommandBlockOutput.visualElement;
+                ParameterFields = parameterCommandBlockOutput.parameterFields;
 
                 VisualBlock.name = GroupStyle.Name;
 
@@ -764,12 +761,15 @@ namespace Holylib.DebugConsole {
         
         #region Visuals
         private void _instantiateCommandBlocks() {
-
+            
+            _loadKeybinds();
+            
             SetSelectedBlockIndex(-1);
-
+            
             _blocksUI.Clear();
             _commandBlocks.Clear();
-
+            _methodNameToCommandBlock.Clear();
+            
             Dictionary<DebugGroupStyle, List<VisualElement>> groups = new();
 
     
@@ -784,6 +784,9 @@ namespace Holylib.DebugConsole {
                 CommandBlock commandBlock = new();
                 commandBlock.Initialize(command.Value);
                 _commandBlocks.Add(commandBlock);
+                if (!_methodNameToCommandBlock.TryAdd(commandBlock.MethodName, commandBlock)) {
+                    Debug.LogError($"There are multiple commands with the nane '{commandBlock.MethodName}'\nChange their names.");
+                }
                 
                 if (!groups.ContainsKey(commandBlock.GroupStyle)) {
                     groups[commandBlock.GroupStyle] = new();
@@ -807,7 +810,7 @@ namespace Holylib.DebugConsole {
                 }
                 _blocksUI.Add(group);
             }
-
+            
             _visibleBlockCount = DebugCommandRegistry.Commands.Count;
         }
         private void _updateCommandBlocksList() {
@@ -872,18 +875,6 @@ namespace Holylib.DebugConsole {
             _visibleBlockCount = visibleBlockCount;
             
         }
-        
-        private VisualElement _instantiateRegularCommandBlock (CommandBlock commandBlock) {
-            var block = _regularCommandBlock.Instantiate();
-            block.Q<Label>("CommandBlockLabel").text = commandBlock.MethodName;
-            block.RegisterCallback<MouseUpEvent>((a) => {
-                commandBlock.RunCommand();
-            });
-            block.Q<Button>("Pin").clicked += () => {
-                _pinBlock(commandBlock.MethodName);
-            };
-            return block;
-        }
 
         private (VisualElement visualElement,List<ParameterField> parameterFields) _instantiateParameterCommandBlock (CommandBlock commandBlock) {
             var block = _parameterCommandBlock.Instantiate();
@@ -930,13 +921,53 @@ namespace Holylib.DebugConsole {
 
                     block.Q<VisualElement>("Parameters").Add(parameterField);
                 }
-
-
-
-
+                
             }
             
             
+            // keybinds
+            var keybindDropdown = block.Q<DropdownField>("KeybindDropdown");
+            var keybindButton = block.Q<Button>("KeybindButton");
+            
+            keybindButton.RegisterCallback<ClickEvent>((evt) => {
+
+                if (keybindDropdown.style.display == DisplayStyle.Flex) {
+                    keybindDropdown.style.display =  new StyleEnum<DisplayStyle>(DisplayStyle.None);
+                } else {
+                    keybindDropdown.style.display =  new StyleEnum<DisplayStyle>(DisplayStyle.Flex);
+                }
+                
+            });
+            
+            var keys = Enum.GetValues(typeof(Key))
+                .Cast<Key>()
+                .Where(k => k == Key.None || (k >= Key.A && k <= Key.Z) ||
+                    k is Key.Digit0 or Key.Digit1 or Key.Digit2 or Key.Digit3 or Key.Digit4
+                        or Key.Digit5 or Key.Digit6 or Key.Digit7 or Key.Digit8 or Key.Digit9)
+                .Select(k => k.ToString())
+                .ToList();
+
+            keybindDropdown.choices = keys;
+            if (_keybindings.TryGetValue(commandBlock.MethodName, out var keybinding)) {
+                keybindDropdown.value = keybindDropdown.choices.Find(c=>string.Equals(c,keybinding.ToString()));
+                
+                setKeybind(keybinding.ToString());
+                
+            }
+
+            keybindDropdown.RegisterValueChangedCallback((evt) => {
+                
+                setKeybind(evt.newValue);
+                
+                _saveKeybinds();
+                
+                keybindDropdown.style.display =  new StyleEnum<DisplayStyle>(DisplayStyle.None);
+            });
+            
+            
+            keybindDropdown.style.display =  new StyleEnum<DisplayStyle>(DisplayStyle.None);
+            
+
             block.Q<Button>("Pin").clicked += () => {
                 _pinBlock(commandBlock.MethodName);
             };
@@ -946,6 +977,19 @@ namespace Holylib.DebugConsole {
             });
 
             return (block,parameterFields);
+
+            void setKeybind(string selected) {
+
+                string keyName = char.IsDigit(selected[0]) ? "Digit" + selected : selected;
+    
+                var keycode = Enum.TryParse(keyName, out Key key) ? key : Key.None;
+
+                if (_setKeybinding(commandBlock.MethodName, keycode)) {
+                    keybindButton.text = keyName;
+                } else {
+                    keybindButton.text = "Keybind";
+                }
+            }
         }
         
         private struct ParameterField {
@@ -1048,7 +1092,76 @@ namespace Holylib.DebugConsole {
         
 
     #endregion
-        
+
+    #region Keybinds
+
+        private const string _keybindSavePlayerPref = "CommandKeybinds";
+        private const string _keybindSaveSeperator = "%";
+        private Dictionary<string,Key> _keybindings = new();
+
+        private void _saveKeybinds() {
+            string save = "";
+            var keybindings = _keybindings.ToList();
+            for (int i = 0;i< _keybindings.Count;i++) {
+
+                if (i != 0) {
+                    save += _keybindSaveSeperator;
+                }
+                save += $"{keybindings[i].Key}-{(int)keybindings[i].Value}";
+            }
+            
+            PlayerPrefs.SetString(_keybindSavePlayerPref,save);
+        }
+
+        private void _loadKeybinds() {
+            _keybindings.Clear();
+            var save = PlayerPrefs.GetString(_keybindSavePlayerPref,"");
+            if (save  == "") return;
+            
+            
+            foreach (var keybinds in save.Split(_keybindSaveSeperator)) {
+                var values = keybinds.Split('-');
+
+                var methodName = values[0];
+                Key keyCode = Enum.Parse<Key>(values[1]);
+                
+                if (!_keybindings.TryAdd(methodName, keyCode)) {
+                    Debug.LogError($"Couldn't load the keybind '{keyCode.ToString()}' for {methodName}");
+                }
+            }
+            
+        }
+
+        private bool _setKeybinding(string methodName,Key keycode) {
+
+            if (keycode == Key.None) {
+                _keybindings.Remove(methodName);
+                return false;
+            }
+            
+            _keybindings[methodName] = keycode;
+            
+            return true;
+        }
+
+        private void _keybindingInputCheck() {
+            
+            if(!Keyboard.current.hKey.isPressed) return;
+            
+            foreach (var keybinding in _keybindings) {
+                if (Keyboard.current[keybinding.Value].wasReleasedThisFrame) {
+                    _methodNameToCommandBlock[keybinding.Key].RunCommand();
+                }
+            }
+        }
+
+        [ContextMenu("Erase Keybinds")]
+        private void _eraseKeybinds() {
+            PlayerPrefs.SetString(_keybindSavePlayerPref,"");
+            Debug.Log("Keybinds Erased");
+        }
+
+#endregion
     }
     
     #region Attributes

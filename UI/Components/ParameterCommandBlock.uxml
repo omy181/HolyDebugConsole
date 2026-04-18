@@ -1,11 +1,19 @@
 <ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
     <Style src="project://database/Assets/DebugConsole/dev.holyperson.holydebugconsole/UI/Components/baseField.uss?fileID=7433441132597879392&amp;guid=f9a9546ed27c57843bb3d709e002abd8&amp;type=3#baseField"/>
     <ui:VisualElement name="ParameterCommandBlock" class="command-block" style="flex-grow: 1; flex-shrink: 0;">
-        <ui:VisualElement name="Labels" style="flex-grow: 0; flex-direction: row;">
-            <ui:Label text="Get item" name="CommandBlockLabel" class="command-block-command"/>
-            <ui:Label text="12" name="VariableValue" class="command-block-command" style="font-size: 14px; -unity-text-align: middle-left; color: rgb(166, 166, 166);"/>
+        <ui:VisualElement name="Top" style="flex-grow: 0; flex-direction: row; justify-content: space-between;">
+            <ui:VisualElement name="Labels" style="flex-grow: 1; flex-direction: row; flex-wrap: wrap;">
+                <ui:Label text="Get item  " name="CommandBlockLabel" class="command-block-command" style="white-space: normal;"/>
+                <ui:Label text="12" name="VariableValue" class="command-block-command" style="font-size: 14px; -unity-text-align: middle-left; color: rgb(166, 166, 166); white-space: normal;"/>
+            </ui:VisualElement>
+            <ui:VisualElement name="Buttons" style="flex-grow: 1; position: relative; top: auto; right: auto; flex-direction: row; flex-wrap: nowrap; align-self: flex-start; justify-content: flex-end; align-content: stretch;">
+                <ui:Button text="Keybind" name="KeybindButton" style="position: relative; right: auto; top: auto; padding-bottom: 4px; padding-top: 4px; padding-left: 6px; padding-right: 6px; margin-top: 4px; margin-left: 2px;"/>
+                <ui:Button text="Pin" name="Pin" style="position: relative; right: auto; top: auto; padding-bottom: 4px; padding-top: 4px; padding-left: 6px; padding-right: 6px; margin-top: 4px; margin-left: 2px;"/>
+            </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="Parameters" style="flex-grow: 1;"/>
-        <ui:Button text="Pin" name="Pin" style="position: absolute; right: 0; top: 0; padding-bottom: 4px; padding-top: 4px; padding-left: 6px; padding-right: 6px; margin-top: 4px;"/>
+        <ui:VisualElement name="Keybinds" style="flex-grow: 1;">
+            <ui:DropdownField label="Keybind" name="KeybindDropdown" style="padding-top: 2px; padding-bottom: 2px; color: rgb(196, 196, 196);"/>
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
