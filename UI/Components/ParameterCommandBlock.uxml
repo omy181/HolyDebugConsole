@@ -12,8 +12,5 @@
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="Parameters" style="flex-grow: 1;"/>
-        <ui:VisualElement name="Keybinds" style="flex-grow: 1;">
-            <ui:DropdownField label="Keybind" name="KeybindDropdown" style="padding-top: 2px; padding-bottom: 2px; color: rgb(196, 196, 196);"/>
-        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

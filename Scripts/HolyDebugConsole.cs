@@ -14,11 +14,13 @@ namespace Holylib.DebugConsole {
     public class HolyDebugConsole : MonoBehaviour {
 
         [Header("Settings")]
+        [Tooltip("When calling a debug function using keybinds hold this button first")]
+        [SerializeField] private Key _debugCommandKey;
+
         [Tooltip("Debug commands in unity assemblies won't show up")]
         [field:SerializeField] public bool ExcludeUnityAssemblies { get; private set; } = true;
         [Tooltip("Debug commands outside of CSharp assembly won't show up")]
         [field:SerializeField] public bool OnlyIncludeCSharpAssembly { get;private set;} = true;
-
 
         #region References
         [Header("References")]
@@ -150,6 +152,8 @@ namespace Holylib.DebugConsole {
             _keybindingInputCheck();
             
             if(!IsConsoleOpen) return;
+            
+            _listenInput();
             
             if (Keyboard.current.backspaceKey.wasReleasedThisFrame) {
                 _backspacePressed();
@@ -926,46 +930,43 @@ namespace Holylib.DebugConsole {
             
             
             // keybinds
-            var keybindDropdown = block.Q<DropdownField>("KeybindDropdown");
             var keybindButton = block.Q<Button>("KeybindButton");
+            
+            if(commandBlock.Field?.IsReadOnly ?? false)
+                keybindButton.style.display = new StyleEnum<DisplayStyle>(DisplayStyle.None);
             
             keybindButton.RegisterCallback<ClickEvent>((evt) => {
 
-                if (keybindDropdown.style.display == DisplayStyle.Flex) {
-                    keybindDropdown.style.display =  new StyleEnum<DisplayStyle>(DisplayStyle.None);
+                if (string.Equals(keybindButton.text,"Listening")) {
+
+                    _setKeybindAndButton(keybindButton,commandBlock,Key.None);
+                    _saveKeybinds();
+                    _disableInputListening();
                 } else {
-                    keybindDropdown.style.display =  new StyleEnum<DisplayStyle>(DisplayStyle.Flex);
+                    keybindButton.text = "Listening";
+                    keybindButton.AddToClassList("log-button-pseudo-selected");
+                    
+                    _enableInputListening(k => {
+                        _setKeybindAndButton(keybindButton,commandBlock,k);
+                        _saveKeybinds();
+                    }, () => {
+                        
+                        if (_keybindings.TryGetValue(commandBlock.MethodName, out var keybinding)) {
+                            keybindButton.text = keybinding.ToString();
+                        } else {
+                            keybindButton.text = "Keybind";
+                        }
+                        
+                        keybindButton.RemoveFromClassList("log-button-pseudo-selected");
+                    });
                 }
                 
             });
             
-            var keys = Enum.GetValues(typeof(Key))
-                .Cast<Key>()
-                .Where(k => k == Key.None || (k >= Key.A && k <= Key.Z) ||
-                    k is Key.Digit0 or Key.Digit1 or Key.Digit2 or Key.Digit3 or Key.Digit4
-                        or Key.Digit5 or Key.Digit6 or Key.Digit7 or Key.Digit8 or Key.Digit9)
-                .Select(k => k.ToString())
-                .ToList();
-
-            keybindDropdown.choices = keys;
+            // load keybinding
             if (_keybindings.TryGetValue(commandBlock.MethodName, out var keybinding)) {
-                keybindDropdown.value = keybindDropdown.choices.Find(c=>string.Equals(c,keybinding.ToString()));
-                
-                setKeybind(keybinding.ToString());
-                
+                _setKeybindAndButton(keybindButton,commandBlock,keybinding);
             }
-
-            keybindDropdown.RegisterValueChangedCallback((evt) => {
-                
-                setKeybind(evt.newValue);
-                
-                _saveKeybinds();
-                
-                keybindDropdown.style.display =  new StyleEnum<DisplayStyle>(DisplayStyle.None);
-            });
-            
-            
-            keybindDropdown.style.display =  new StyleEnum<DisplayStyle>(DisplayStyle.None);
             
 
             block.Q<Button>("Pin").clicked += () => {
@@ -977,19 +978,6 @@ namespace Holylib.DebugConsole {
             });
 
             return (block,parameterFields);
-
-            void setKeybind(string selected) {
-
-                string keyName = char.IsDigit(selected[0]) ? "Digit" + selected : selected;
-    
-                var keycode = Enum.TryParse(keyName, out Key key) ? key : Key.None;
-
-                if (_setKeybinding(commandBlock.MethodName, keycode)) {
-                    keybindButton.text = keyName;
-                } else {
-                    keybindButton.text = "Keybind";
-                }
-            }
         }
         
         private struct ParameterField {
@@ -1146,12 +1134,54 @@ namespace Holylib.DebugConsole {
 
         private void _keybindingInputCheck() {
             
-            if(!Keyboard.current.hKey.isPressed) return;
+            if(!Keyboard.current[_debugCommandKey].isPressed) return;
             
             foreach (var keybinding in _keybindings) {
                 if (Keyboard.current[keybinding.Value].wasReleasedThisFrame) {
                     _methodNameToCommandBlock[keybinding.Key].RunCommand();
                 }
+            }
+        }
+
+        private void _listenInput() {
+            if (!_isListening) return;
+            
+            if (Keyboard.current.anyKey.wasPressedThisFrame)
+            {
+                foreach (var key in Keyboard.current.allKeys)
+                {
+                    if (key.wasPressedThisFrame) {
+                        _onKeySelectedAction(key.keyCode);
+                        _disableInputListening();
+                        
+                        break;
+                    }
+                }
+            }
+        }
+
+        private Action _onKeyNotSelectedAction;
+        private Action<Key> _onKeySelectedAction;
+        private bool _isListening;
+        private void _enableInputListening(Action<Key> onKeySelected,Action onKeyNotSelectedAction) {
+            _disableInputListening();
+            _onKeySelectedAction =  onKeySelected;
+            _isListening = true;
+            _onKeyNotSelectedAction =  onKeyNotSelectedAction;
+        }
+        
+        private void _disableInputListening() {
+            _onKeyNotSelectedAction?.Invoke();
+            _onKeyNotSelectedAction = null;
+            _isListening = false;
+            _onKeySelectedAction = null;
+        }
+
+        private void _setKeybindAndButton(Button keybindButton,CommandBlock commandBlock,Key key) {
+            if (_setKeybinding(commandBlock.MethodName, key)) {
+                keybindButton.text = key.ToString();
+            } else {
+                keybindButton.text = "Keybind";
             }
         }
 
