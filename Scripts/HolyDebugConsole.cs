@@ -16,7 +16,9 @@ namespace Holylib.DebugConsole {
         [Header("Settings")]
         [Tooltip("When calling a debug function using keybinds hold this button first")]
         [SerializeField] private Key _debugCommandKey = Key.AltGr;
-
+        
+        [Tooltip("Example commands won't show up")]
+        [field:SerializeField] public bool ExcludeExampleCommands { get; private set; } = false;
         [Tooltip("Debug commands in unity assemblies won't show up")]
         [field:SerializeField] public bool ExcludeUnityAssemblies { get; private set; } = true;
         [Tooltip("Debug commands outside of CSharp assembly won't show up")]
@@ -1247,10 +1249,13 @@ namespace Holylib.DebugConsole {
 
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies()) {
                 string assemblyName = assembly.FullName;
+                
 
                 if (!assemblyName.StartsWith("HolyDebugConsole")) {
                     if(HolyDebugConsole.instance.OnlyIncludeCSharpAssembly && !assemblyName.StartsWith("Assembly-CSharp")) continue;
                     if(HolyDebugConsole.instance.ExcludeUnityAssemblies && UnityAssemblies.Any(assemblyName.StartsWith)) continue;
+                } else {
+                    if(HolyDebugConsole.instance.ExcludeExampleCommands) continue;
                 }
 
                 foreach (Type type in assembly.GetTypes()) {
