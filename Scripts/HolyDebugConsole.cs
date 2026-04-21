@@ -58,6 +58,7 @@ namespace Holylib.DebugConsole {
                 Debug.LogWarning(this + " already has an istance.");
             } else {
                 instance = this;
+                IsConsoleOpen = false;
             }
 
             _uiDocument.enabled = true;
