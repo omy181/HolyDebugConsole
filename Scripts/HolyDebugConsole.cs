@@ -31,10 +31,10 @@ namespace Holylib.DebugConsole {
         
         [Header("Search Spaces")]
         [SerializeField]
-        private List<AssemblyDefinitionAsset> _staticAssemblies = new List<AssemblyDefinitionAsset>();
+        private List<string> _staticAssemblies = new List<string>();
         
         [SerializeField]
-        private List<AssemblyDefinitionAsset> _nonStaticAssemblies = new List<AssemblyDefinitionAsset>();
+        private List<string> _nonStaticAssemblies = new List<string>();
         
         #region References
         [Header("References")]
@@ -59,9 +59,9 @@ namespace Holylib.DebugConsole {
         public void ExecuteLastCommand() => _executeCommand(_searchField.value);
         public void ExecuteCommand (string input) => _executeCommand(input);
         
-        public List<AssemblyDefinitionAsset> StaticAssemblies => _staticAssemblies;
-        public List<AssemblyDefinitionAsset> NonStaticAssemblies => _nonStaticAssemblies;
         public string RootScriptableObjectsFolder => _rootScriptableObjectsFolder;
+        public List<string> NonStaticAssemblies => _nonStaticAssemblies;
+        public List<string> StaticAssemblies => _staticAssemblies;
         public bool Verbose => _verbose;
         
         public static void OutputToConsole (string message, LogType type = LogType.Log)
@@ -93,7 +93,8 @@ namespace Holylib.DebugConsole {
             _uiDocument.enabled = false;
         }
 #endif
-        private void Update() {
+        private void Update()
+        {
             _outputTheQueueUpdate();
             _InputHandling();
         }
@@ -247,11 +248,8 @@ namespace Holylib.DebugConsole {
         private string _commandListString;
         private static string _outputString;
         private void _outputTheQueueUpdate() {
-            lock (_logQueue) {
-                while (_logQueue.Count > 0) {
-                    var (message, type) = _logQueue.Dequeue();
-                    OutputToConsole(message, type);
-                }
+            while (_logQueue.TryDequeue(out (string message, LogType type) value)) {
+                OutputToConsole(value.message, value.type);
             }
         }
         private IEnumerator FocusNextFrame() {
@@ -354,9 +352,7 @@ namespace Holylib.DebugConsole {
         }
         
         private void _handleLog (string logString, string stackTrace, LogType type) {
-            lock (_logQueue) {
-                _logQueue.Enqueue(($"{logString}\n{stackTrace}", type));
-            }
+            //_logQueue.Enqueue(($"{logString}\n{stackTrace}", type));
         }
 
         private readonly Queue<(string, LogType)> _logQueue = new Queue<(string, LogType)>();
@@ -795,21 +791,32 @@ namespace Holylib.DebugConsole {
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void RegisterCommands() {
+            if (HolyDebugConsole.instance == null)
+            {
+                return;
+            }
+            
+            Stopwatch stopwatch = Stopwatch.StartNew();
             _registerStyles();
             _registerCommands();
+            
+            stopwatch.Stop();
+            if (HolyDebugConsole.instance.Verbose)
+            {
+                Debug.Log($"Registered debug commands in: {stopwatch.Elapsed.TotalMilliseconds}ms");
+            }
         }
 
         private static void _registerCommands() {
-            Stopwatch stopwatch = Stopwatch.StartNew();
             
             // Static Methods
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 // If static assemblies list is empty then search every assembly, fine for static methods
                 bool isIncluded = HolyDebugConsole.instance.StaticAssemblies.Count <= 0; 
-                foreach (AssemblyDefinitionAsset staticAssembly in HolyDebugConsole.instance.StaticAssemblies)
+                foreach (string staticAssemblyName in HolyDebugConsole.instance.StaticAssemblies)
                 {
-                    if (staticAssembly.name == assembly.GetName().Name)
+                    if (staticAssemblyName == assembly.GetName().Name)
                     {
                         isIncluded = true;
                         break;
@@ -842,9 +849,9 @@ namespace Holylib.DebugConsole {
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 bool isIncluded = false;
-                foreach (AssemblyDefinitionAsset nonStaticAssembly in HolyDebugConsole.instance.NonStaticAssemblies)
+                foreach (string nonStaticAssemblyName in HolyDebugConsole.instance.NonStaticAssemblies)
                 {
-                    if (nonStaticAssembly.name == assembly.GetName().Name)
+                    if (nonStaticAssemblyName == assembly.GetName().Name)
                     {
                         isIncluded = true;
                         break;
@@ -908,30 +915,40 @@ namespace Holylib.DebugConsole {
                 
             }
             
-            stopwatch.Stop();
-            if (HolyDebugConsole.instance.Verbose)
-            {
-                Debug.Log($"Registered debug commands in: {stopwatch.Elapsed.TotalMilliseconds}ms");
-            }
         }
 
         private static void _registerStyles()
         {
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
-            foreach (Type type in assembly.GetTypes())
-            foreach (FieldInfo field in type.GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
             {
-                try
+                // If static assemblies list is empty then search every assembly, fine for static methods
+                bool isIncluded = HolyDebugConsole.instance.StaticAssemblies.Count <= 0; 
+                foreach (string staticAssemblyName in HolyDebugConsole.instance.StaticAssemblies)
                 {
-                    var attribute = field.GetCustomAttribute<DebugCommandGroupAttribute>();
-                    if (attribute != null)
+                    if (staticAssemblyName == assembly.GetName().Name)
                     {
-                        NameToGroup[attribute.GroupName] = (DebugGroupStyle)field.GetValue(null);
+                        isIncluded = true;
+                        break;
                     }
                 }
-                catch (Exception e)
+
+                if (!isIncluded) continue;
+                
+                foreach (Type type in assembly.GetTypes())
+                foreach (FieldInfo field in type.GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
                 {
-                    Debug.LogException(e);
+                    try
+                    {
+                        var attribute = field.GetCustomAttribute<DebugCommandGroupAttribute>();
+                        if (attribute != null)
+                        {
+                            NameToGroup[attribute.GroupName] = (DebugGroupStyle)field.GetValue(null);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogException(e);
+                    }
                 }
             }
         }
