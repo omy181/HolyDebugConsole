@@ -1,11 +1,11 @@
 :root {
     --accent-color: rgb(219, 149, 38);
     --accent-dark-color: rgb(136, 77, 10);
-    --error-color: rgb(236 20 11);
-    --error-dark-color: rgb(195 45 1);
+    --error-color: rgb(236, 20, 11);
+    --error-dark-color: rgb(195, 45, 1);
 }
 
-#unity-text-input {
+.unity-base-field__input {
     background-color: rgb(26, 26, 26);
     border-top-left-radius: 8px;
     padding-left: 6px;
@@ -22,7 +22,7 @@
     --unity-cursor-color: rgb(255, 255, 255);
 }
 
-#unity-text-input:hover {
+.unity-base-field__input:hover {
     border-color: var(--accent-color);
 }
 
@@ -55,6 +55,22 @@
     border-bottom-right-radius: 8px;
     border-bottom-left-radius: 8px;
     border-top-right-radius: 8px;
+}
+
+#ConsoleLine:hover {
+    border-left-color: var(--accent-color);
+    border-left-width: 6px;
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-top-color: var(--accent-color);
+    border-bottom-color: var(--accent-color);
+    transition-property: all, translate;
+    transition-duration: 0.1s, 0.2s;
+    transition-timing-function: ease, ease;
+    transition-delay: 0s, 0s;
+    transform-origin: left;
+    border-top-width: 0;
+    border-bottom-width: 0;
 }
 
 .command-block {
@@ -201,3 +217,36 @@
     transition-timing-function: ease-in;
     translate: 6px 0;
 }
+
+.log-button-pseudo-selected {
+    border-top-color: var(--accent-color);
+    border-top-width: 1px;
+    border-bottom-color: var(--accent-color);
+    border-bottom-width: 3px;
+    border-right-color: var(--accent-color);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-left-color: var(--accent-color);
+    translate: 0 3px;
+    transition-duration: 0.3s;
+}
+
+.unity-toggle {
+    color: rgb(209, 209, 209);
+    -unity-text-align: middle-right;
+    flex-direction: row;
+    border-top-left-radius: 0;
+}
+
+.unity-toggle__checkmark {
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
+    border-bottom-left-radius: 10px;
+    background-color: rgb(24, 24, 24);
+    -unity-background-image-tint-color: rgb(255, 255, 255);
+}
+
+
+
+

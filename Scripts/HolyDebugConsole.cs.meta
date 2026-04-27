@@ -8,6 +8,8 @@ MonoImporter:
   - _parameterCommandBlock: {fileID: 9197481963319205126, guid: f22c0f4262e158f4f805294de3c54ef2, type: 3}
   - _commandBlockParameter: {fileID: 9197481963319205126, guid: c00089ff52ea63246aa9db0af011f2b4, type: 3}
   - _commandBlockGroup: {fileID: 9197481963319205126, guid: 6bc7e33b085a87b4597afd1cc33b28fc, type: 3}
+  - _consoleLine: {fileID: 9197481963319205126, guid: 2225f2780c33f1049ac4a55b3c4e96a2, type: 3}
+  - _commandBlockBoolParameter: {fileID: 9197481963319205126, guid: 64d5cdaac43976146a189165960c9587, type: 3}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 

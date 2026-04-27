@@ -1,0 +1,12 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="project://database/Assets/DebugConsole/dev.holyperson.holydebugconsole/UI/Components/baseField.uss?fileID=7433441132597879392&amp;guid=f9a9546ed27c57843bb3d709e002abd8&amp;type=3#baseField"/>
+    <ui:VisualElement name="ConsoleLine" focusable="false" style="flex-grow: 1; flex-direction: row; margin-left: 0; margin-right: 0; background-color: rgba(34, 34, 34, 0.22); padding-left: 5px; padding-right: 5px; transition-duration: 0.2s; border-top-color: rgba(0, 0, 0, 0.47); border-top-width: 3px;">
+        <ui:Label text="20:17" name="Time" style="-unity-text-align: middle-left; color: rgb(176, 176, 176);"/>
+        <ui:VisualElement name="Icon" style="flex-grow: 0; background-image: url(&quot;project://database/Assets/_Heathen%20Engineering/Assets/UX/Icons/Flat%20Icons%20[Free]/Free%20Flat%20Chat%201%20Ellipsis%20Icon.png?fileID=21300000&amp;guid=3ac79dc5d95aecf40b0a769e033134fd&amp;type=3#Free Flat Chat 1 Ellipsis Icon&quot;); -unity-background-scale-mode: scale-to-fit; padding-top: 12px; padding-bottom: 12px; padding-right: 12px; padding-left: 12px; margin-top: 4px; margin-bottom: 4px; margin-left: 4px; margin-right: 4px; -unity-background-image-tint-color: rgb(255, 255, 255);"/>
+        <ui:Label text="1" name="Count" style="-unity-text-align: middle-center; color: rgb(255, 255, 255);"/>
+        <ui:VisualElement name="TextArea" style="flex-grow: 1;">
+            <ui:Label text="Test Debug Message Test Debug Message Test Debug Message Test Debug Message Test Debug Message Test Debug Message Test Debug Message Test Debug Message" name="MainDebugText" style="flex-wrap: nowrap; white-space: normal; color: rgb(255, 255, 255);"/>
+            <ui:TextField label="" placeholder-text="" readonly="true" name="DebugTextStackTrace" value="Test Debug Message Test Debug Message Test Debug Message Test Debug Message Test Debug Message Test Debug Message Test Debug Message Test Debug Message" focusable="true" select-all-on-focus="false"/>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
