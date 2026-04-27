@@ -1269,7 +1269,8 @@ namespace Holylib.DebugConsole {
         
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void RegisterCommands() {
-
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies()) {
                 string assemblyName = assembly.GetName().Name;
                 
@@ -1294,6 +1295,12 @@ namespace Holylib.DebugConsole {
                         _registerStyles(type, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
                     }
                 }
+            }
+            
+            stopwatch.Stop();
+            if (HolyDebugConsole.instance.Verbose)
+            {
+                Debug.Log($"(HolyDebugConsole) Registered Debug Commands in {stopwatch.Elapsed.TotalMilliseconds} ms");
             }
         }
 
