@@ -1466,7 +1466,11 @@ namespace Holylib.DebugConsole {
                 Type ownerClass = methodGroup.method.DeclaringType;
                 if (ownerClass != null && ownerClass.IsSubclassOf(typeof(MonoBehaviour)))
                 {
+#if UNITY_6000_4_OR_NEWER
                     Object[] objs = Object.FindObjectsByType(methodGroup.method.DeclaringType, FindObjectsInactive.Exclude);
+#else
+                    Object[] objs = Object.FindObjectsByType(methodGroup.method.DeclaringType, FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+#endif
                     foreach (Object obj in objs)
                     {
                         methodGroup.method.Invoke(obj, parsedArgs);
