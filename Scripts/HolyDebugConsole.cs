@@ -1316,10 +1316,10 @@ namespace Holylib.DebugConsole {
                     var attribute = method.GetCustomAttribute<DebugCommandAttribute>();
                     if (attribute != null) {
                         if (NameToGroup.TryGetValue(attribute.Group, out DebugGroupStyle group)) {
-                            Commands[method.Name.ToLower()] = new MethodGroup(method, group, null, null, false, method.Name);
+                            Commands[method.Name] = new MethodGroup(method, group, null, null, false, method.Name);
                         } else {
                             NameToGroup[attribute.Group] = new DebugGroupStyle(attribute.Group, Color.white);
-                            Commands[method.Name.ToLower()] = new MethodGroup(method, NameToGroup[attribute.Group], null, null, false, method.Name);
+                            Commands[method.Name] = new MethodGroup(method, NameToGroup[attribute.Group], null, null, false, method.Name);
                         } 
                     }
                 }
@@ -1369,14 +1369,13 @@ namespace Holylib.DebugConsole {
                     {
                         string assetPath = AssetDatabase.GUIDToAssetPath(guid);
                         ScriptableObject data = AssetDatabase.LoadAssetAtPath<ScriptableObject>(assetPath);
-                        if (data != null)
-                        {
-                            string keyString = $"<color=grey>{method.Name}_</color>{data.name}";
-                            keyString = keyString.Replace(' ', '_');
+                        if (data == null) continue;
+                        
+                        string keyString = $"<color=grey>{method.Name}_</color>{data.name}";
+                        keyString = keyString.Replace(' ', '_');
 
-                            values.Add(keyString, data);
-                            Commands[keyString] = new MethodGroup(method, group, null, null, false, keyString);
-                        }
+                        values.Add(keyString, data);
+                        Commands[keyString] = new MethodGroup(method, group, null, null, false, keyString);
                     }
 
                     ScriptableObjects[method.Name] = values;
@@ -1426,19 +1425,18 @@ namespace Holylib.DebugConsole {
 
                     quotationOpen = !quotationOpen;
 
-                    if (!quotationOpen) {
-                        tokens.Add(quotedText);
-                        quotedText = "";
-                    }
+                    if (quotationOpen) continue;
+                    tokens.Add(quotedText);
+                    quotedText = "";
                 } else {
                     if (quotationOpen) {
                         quotedText += input[c];
                     } else {
-                        if (input[c] == ' ') {
-                            if (currentPhrase.Length > 0) {
-                                tokens.Add(currentPhrase);
-                                currentPhrase = "";
-                            }
+                        if (input[c] == ' ')
+                        {
+                            if (currentPhrase.Length <= 0) continue;
+                            tokens.Add(currentPhrase);
+                            currentPhrase = "";
                         } else {
                             currentPhrase += input[c];
                         }
@@ -1450,8 +1448,10 @@ namespace Holylib.DebugConsole {
 
             string command = tokens[0];
             if (!Commands.TryGetValue(command, out MethodGroup methodGroup))
+            {
+                Debug.LogWarning($"Could not find command: {command}. List of commands: {string.Join(", ", Commands.Keys)}");
                 return false;
-
+            }
             var parameters = methodGroup.method.GetParameters();
             if (tokens.Count - 1 != parameters.Length) {
                 Debug.LogWarning($"Expected {parameters.Length} arguments but got {tokens.Count - 1}.");
