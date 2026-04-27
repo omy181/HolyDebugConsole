@@ -1,12 +1,20 @@
-using System;
-using System.Collections;
+using Assembly = System.Reflection.Assembly;
+using Object = UnityEngine.Object;
+using Debug = UnityEngine.Debug;
+
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
-using Debug = UnityEngine.Debug;
+using System.Collections;
+using System.Reflection;
+using UnityEngine;
+using System.Linq;
+using System;
+using System.Diagnostics;
+
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace Holylib.DebugConsole {
 
@@ -16,21 +24,30 @@ namespace Holylib.DebugConsole {
         [Header("Settings")]
         [Tooltip("When calling a debug function using keybinds hold this button first")]
         [SerializeField] private Key _debugCommandKey = Key.AltGr;
-        
-        [Tooltip("Example commands won't show up")]
-        [field:SerializeField] public bool ExcludeExampleCommands { get; private set; } = false;
-        [Tooltip("Debug commands in unity assemblies won't show up")]
-        [field:SerializeField] public bool ExcludeUnityAssemblies { get; private set; } = true;
-        [Tooltip("Debug commands outside of CSharp assembly won't show up")]
-        [field:SerializeField] public bool OnlyIncludeCSharpAssembly { get;private set;} = true;
 
+        [SerializeField]
+        private bool _defaultFocusSearch = false;
+        
+        [SerializeField]
+        private bool _verbose = true;
+        
+        [SerializeField]
+        private string _rootScriptableObjectsFolder = "Assets"; 
+        
+        [Header("Search Spaces")]
+        [SerializeField]
+        private List<string> _staticAssemblies = new List<string>();
+        
+        [SerializeField]
+        private List<string> _nonStaticAssemblies = new List<string>();
+        
         #region References
         [Header("References")]
-        [HideInInspector][SerializeField] private VisualTreeAsset _parameterCommandBlock;
-        [HideInInspector][SerializeField] private VisualTreeAsset _commandBlockParameter;
-        [HideInInspector][SerializeField] private VisualTreeAsset _commandBlockGroup;
-        [HideInInspector][SerializeField] private VisualTreeAsset _consoleLine;
-        [HideInInspector][SerializeField] private VisualTreeAsset _commandBlockBoolParameter;
+        [SerializeField] private VisualTreeAsset _parameterCommandBlock;
+        [SerializeField] private VisualTreeAsset _commandBlockParameter;
+        [SerializeField] private VisualTreeAsset _commandBlockGroup;
+        [SerializeField] private VisualTreeAsset _consoleLine;
+        [SerializeField] private VisualTreeAsset _commandBlockBoolParameter;
         
         private VisualElement _root;
         private ScrollView _blocksUI;
@@ -47,6 +64,12 @@ namespace Holylib.DebugConsole {
         public Action<bool> OnConsoleToggled;
         public void ExecuteLastCommand() => _executeCommand(_searchField.value);
         public void ExecuteCommand (string input) => _executeCommand(input);
+        
+        public string RootScriptableObjectsFolder => _rootScriptableObjectsFolder;
+        public List<string> NonStaticAssemblies => _nonStaticAssemblies;
+        public List<string> StaticAssemblies => _staticAssemblies;
+        public bool Verbose => _verbose;
+        
         public static void OutputToConsole (LogElement logElement) {
             _logs.Add(logElement);
             _refreshOutput();
@@ -55,11 +78,16 @@ namespace Holylib.DebugConsole {
         #region Initialization
         protected void Awake() {
             if (instance != null) {
+                Destroy(gameObject);
                 Debug.LogWarning(this + " already has an istance.");
-            } else {
-                instance = this;
-                IsConsoleOpen = false;
+                return;
             }
+
+            gameObject.transform.SetParent(null);
+            DontDestroyOnLoad(gameObject);
+            
+            instance = this;
+            IsConsoleOpen = false;
 
             _uiDocument.enabled = true;
         }
@@ -83,7 +111,6 @@ namespace Holylib.DebugConsole {
         }
         void OnEnable() {
             Application.logMessageReceivedThreaded += _handleLog;
-
         }
 
         void OnDisable() {
@@ -131,8 +158,10 @@ namespace Holylib.DebugConsole {
             });
 
             _searchField.RegisterCallback<KeyUpEvent>(evt => {
-                SetSelectedBlockIndex(-1);
-                _updateCommandBlocksList();
+                if (_searchField.hasFocusPseudoState)
+                {
+                    _updateCommandBlocksList();
+                }
             });
             
             _loadPins();
@@ -267,7 +296,7 @@ namespace Holylib.DebugConsole {
             _root.style.display =
                 _root.style.display == DisplayStyle.None ? DisplayStyle.Flex : DisplayStyle.None;
 
-            if (IsConsoleOpen) {
+            if (IsConsoleOpen && _defaultFocusSearch) {
                 StartCoroutine(FocusNextFrame());
             }
 
@@ -656,7 +685,10 @@ namespace Holylib.DebugConsole {
             public void Initialize(DebugCommandRegistry.MethodGroup methodGroup) {
                 bool isVariableField = methodGroup.method == null;
                 
-                MethodName = !isVariableField ? methodGroup.method.Name : methodGroup.field?.Name ?? methodGroup.property.Name;
+                MethodName = string.IsNullOrEmpty(methodGroup.name) 
+                    ? methodGroup.method.Name
+                    : methodGroup.name;
+                
                 GroupStyle = methodGroup.group;
                 Parameters = !isVariableField ? methodGroup.method.GetParameters() : Array.Empty<ParameterInfo>();
                 Field = isVariableField ? new VariableField(methodGroup.field,methodGroup.property,methodGroup.isReadOnly) : null;
@@ -1227,58 +1259,73 @@ namespace Holylib.DebugConsole {
             public readonly PropertyInfo property;
             public readonly FieldInfo field;
             public readonly MethodInfo method;
+            public readonly string name;
             public DebugGroupStyle group;
             public readonly bool isReadOnly;
-            public MethodGroup (MethodInfo method, DebugGroupStyle group, FieldInfo field, PropertyInfo property, bool isReadOnly) {
+            public MethodGroup (MethodInfo method, DebugGroupStyle group, FieldInfo field, PropertyInfo property, bool isReadOnly, string name) {
                 this.method = method;
                 this.group = group;
                 this.field = field;
                 this.property = property;
                 this.isReadOnly = isReadOnly;
+                this.name = name;
             }
         }
-
-        private static string[] UnityAssemblies = new []{
-            "Unity","UnityEngine","System","UnityEditor"
-        };
 
         public static Dictionary<string, DebugGroupStyle> NameToGroup = new Dictionary<string, DebugGroupStyle>();
         public static Dictionary<string, MethodGroup> Commands = new Dictionary<string, MethodGroup>();
+        public static Dictionary<string, Dictionary<string, ScriptableObject>> ScriptableObjects = new Dictionary<string, Dictionary<string, ScriptableObject>>();
 
+        
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void RegisterCommands() {
-
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies()) {
-                string assemblyName = assembly.FullName;
+                string assemblyName = assembly.GetName().Name;
                 
+                // If static assemblies list is empty then search every assembly, fine for static methods
+                bool isIncludedStatic = HolyDebugConsole.instance.StaticAssemblies.Any(x => x.Equals(assemblyName));
+                bool isIncludedNonStatic = HolyDebugConsole.instance.NonStaticAssemblies.Any(x => x.Equals(assemblyName));
 
-                if (!assemblyName.StartsWith("HolyDebugConsole")) {
-                    if(HolyDebugConsole.instance.OnlyIncludeCSharpAssembly && !assemblyName.StartsWith("Assembly-CSharp")) continue;
-                    if(HolyDebugConsole.instance.ExcludeUnityAssemblies && UnityAssemblies.Any(assemblyName.StartsWith)) continue;
-                } else {
-                    if(HolyDebugConsole.instance.ExcludeExampleCommands) continue;
+                if (isIncludedStatic)
+                {
+                    foreach (Type type in assembly.GetTypes()) {
+                        _registerStyles(type, BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+                        _registerCommands(type, BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+                        _registerVariables(type);
+                    }
                 }
 
-                foreach (Type type in assembly.GetTypes()) {
-                    _registerStyles(type);
-                    _registerCommands(type);
-                    _registerVariables(type);
+                if (isIncludedNonStatic)
+                {
+                    foreach (Type type in assembly.GetTypes())
+                    {
+                        _registerNonStaticCommands(type, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                        _registerStyles(type, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                    }
                 }
+            }
+            
+            stopwatch.Stop();
+            if (HolyDebugConsole.instance.Verbose)
+            {
+                Debug.Log($"(HolyDebugConsole) Registered Debug Commands in {stopwatch.Elapsed.TotalMilliseconds} ms");
             }
         }
 
-        private static void _registerCommands (Type type) {
+        private static void _registerCommands (Type type, BindingFlags flags) {
 
-            foreach (MethodInfo method in type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)) {
+            foreach (MethodInfo method in type.GetMethods(flags)) {
                 try {
                     var attribute = method.GetCustomAttribute<DebugCommandAttribute>();
                     if (attribute != null) {
                         if (NameToGroup.TryGetValue(attribute.Group, out DebugGroupStyle group)) {
-                            Commands[method.Name.ToLower()] = new(method, group, null, null, false);
+                            Commands[method.Name] = new MethodGroup(method, group, null, null, false, method.Name);
                         } else {
                             NameToGroup[attribute.Group] = new DebugGroupStyle(attribute.Group, Color.white);
-                            Commands[method.Name.ToLower()] = new(method, NameToGroup[attribute.Group], null, null, false);
-                        }
+                            Commands[method.Name] = new MethodGroup(method, NameToGroup[attribute.Group], null, null, false, method.Name);
+                        } 
                     }
                 }
                 catch (Exception e) {
@@ -1287,9 +1334,68 @@ namespace Holylib.DebugConsole {
             }
         }
 
-        private static void _registerStyles (Type type) {
+        private static void _registerNonStaticCommands(Type type, BindingFlags flags)
+        {
+            foreach (MethodInfo method in type.GetMethods(flags))
+            {
+                try
+                {
+                    var attribute = method.GetCustomAttribute<DebugCommandAttribute>();
+                    if (attribute == null) continue;
 
-            foreach (FieldInfo field in type.GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)) {
+                    if (method.DeclaringType.IsSubclassOf(typeof(MonoBehaviour)))
+                    {
+                        if (NameToGroup.TryGetValue(attribute.Group, out DebugGroupStyle monoGroup))
+                        {
+                            Commands[method.Name] = new MethodGroup(method, monoGroup, null, null, false, method.Name);
+                        }
+                        else
+                        {
+                            NameToGroup[attribute.Group] = new DebugGroupStyle(attribute.Group, Color.white);
+                            Commands[method.Name] = new MethodGroup(method, NameToGroup[attribute.Group], null, null, false, method.Name);
+                        }
+
+                        continue;
+                    }
+
+#if UNITY_EDITOR
+                    if (!method.DeclaringType.IsSubclassOf(typeof(ScriptableObject))) continue;
+                    string search = $"t:{method.DeclaringType.Name}";
+                    string[] guids = AssetDatabase.FindAssets(search, new[] { HolyDebugConsole.instance.RootScriptableObjectsFolder });
+
+                    Dictionary<string, ScriptableObject> values = new Dictionary<string, ScriptableObject>();
+                    if (!NameToGroup.TryGetValue(attribute.Group, out DebugGroupStyle group))
+                    {
+                        group = new DebugGroupStyle(attribute.Group, Color.white);
+                        NameToGroup[attribute.Group] = group;
+                    }
+
+                    foreach (string guid in guids)
+                    {
+                        string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+                        ScriptableObject data = AssetDatabase.LoadAssetAtPath<ScriptableObject>(assetPath);
+                        if (data == null) continue;
+                        
+                        string keyString = $"<color=grey>{method.Name}_</color>{data.name}";
+                        keyString = keyString.Replace(' ', '_');
+
+                        values.Add(keyString, data);
+                        Commands[keyString] = new MethodGroup(method, group, null, null, false, keyString);
+                    }
+
+                    ScriptableObjects[method.Name] = values;
+#endif
+                }
+                catch (Exception e)
+                {
+                    Debug.LogException(e);
+                }
+            }
+        }
+
+        private static void _registerStyles(Type type, BindingFlags flags) {
+
+            foreach (FieldInfo field in type.GetFields(flags)) {
                 try {
                     var attribute = field.GetCustomAttribute<DebugCommandGroupAttribute>();
                     if (attribute != null) {
@@ -1300,7 +1406,6 @@ namespace Holylib.DebugConsole {
                     Debug.LogException(e);
                 }
             }
-            
         }
 
         public static bool TryInvoke (string input) {
@@ -1325,19 +1430,18 @@ namespace Holylib.DebugConsole {
 
                     quotationOpen = !quotationOpen;
 
-                    if (!quotationOpen) {
-                        tokens.Add(quotedText);
-                        quotedText = "";
-                    }
+                    if (quotationOpen) continue;
+                    tokens.Add(quotedText);
+                    quotedText = "";
                 } else {
                     if (quotationOpen) {
                         quotedText += input[c];
                     } else {
-                        if (input[c] == ' ') {
-                            if (currentPhrase.Length > 0) {
-                                tokens.Add(currentPhrase);
-                                currentPhrase = "";
-                            }
+                        if (input[c] == ' ')
+                        {
+                            if (currentPhrase.Length <= 0) continue;
+                            tokens.Add(currentPhrase);
+                            currentPhrase = "";
                         } else {
                             currentPhrase += input[c];
                         }
@@ -1347,12 +1451,12 @@ namespace Holylib.DebugConsole {
 
             if (currentPhrase != "") tokens.Add(currentPhrase);
 
-
-            MethodGroup methodGroup;
-            string command = tokens[0].ToLower();
-            if (!Commands.TryGetValue(command, out methodGroup))
+            string command = tokens[0];
+            if (!Commands.TryGetValue(command, out MethodGroup methodGroup))
+            {
+                Debug.LogWarning($"Could not find command: {command}. List of commands: {string.Join(", ", Commands.Keys)}");
                 return false;
-
+            }
             var parameters = methodGroup.method.GetParameters();
             if (tokens.Count - 1 != parameters.Length) {
                 Debug.LogWarning($"Expected {parameters.Length} arguments but got {tokens.Count - 1}.");
@@ -1370,9 +1474,37 @@ namespace Holylib.DebugConsole {
                 }
             }
 
-            methodGroup.method.Invoke(null, parsedArgs);
+            if (methodGroup.method.IsStatic)
+            { 
+                methodGroup.method.Invoke(null, parsedArgs);
+            }
+            else
+            {
+                Type ownerClass = methodGroup.method.DeclaringType;
+                if (ownerClass != null && ownerClass.IsSubclassOf(typeof(MonoBehaviour)))
+                {
+#if UNITY_6000_4_OR_NEWER
+                    Object[] objs = Object.FindObjectsByType(methodGroup.method.DeclaringType, FindObjectsInactive.Exclude);
+#else
+                    Object[] objs = Object.FindObjectsByType(methodGroup.method.DeclaringType, FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+#endif
+                    foreach (Object obj in objs)
+                    {
+                        methodGroup.method.Invoke(obj, parsedArgs);
+                    }
+                }
+                else if (ownerClass != null && ownerClass.IsSubclassOf(typeof(ScriptableObject)))
+                {
+                    if (ScriptableObjects.TryGetValue(methodGroup.method.Name, out Dictionary<string, ScriptableObject> value)
+                        && value.TryGetValue(methodGroup.name, out ScriptableObject obj))
+                    {
+                        methodGroup.method.Invoke(obj, parsedArgs);
+                    }
+                }
+            }
             return true;
         }
+
     }
     #endregion
 

@@ -24,7 +24,7 @@ namespace Holylib.DebugConsole {
                             style = NameToGroup[attribute.Group];
                         }
                         
-                        Commands.TryAdd(field.Name, new MethodGroup(null, style, field, null, attribute.IsReadOnly));
+                        Commands.TryAdd(field.Name, new MethodGroup(null, style, field, null, attribute.IsReadOnly, field.Name));
                     }
                 }
                 catch (Exception e) {
@@ -46,7 +46,7 @@ namespace Holylib.DebugConsole {
                             style = NameToGroup[attribute.Group];
                         }
 
-                        Commands.TryAdd(property.Name, new MethodGroup(null, style, null, property, attribute.IsReadOnly));
+                        Commands.TryAdd(property.Name, new MethodGroup(null, style, null, property, attribute.IsReadOnly, property.Name));
                     }
                 }
                 catch (Exception e) {
