@@ -3,7 +3,7 @@
     <ui:VisualElement name="Root" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0.34); flex-direction: row;">
         <ui:VisualElement name="CommandButtons" style="flex-grow: 0; background-color: rgba(0, 0, 0, 0.68); flex-direction: column-reverse; flex-basis: 30%;">
             <ui:VisualElement name="Toolbar" style="flex-grow: 0; flex-direction: row; align-content: auto; align-self: stretch; justify-content: space-around; align-items: stretch; margin-bottom: 0; margin-left: 2px; margin-right: 2px; position: relative; flex-shrink: 0; margin-top: 0;">
-                <ui:TextField label="" placeholder-text="Search Command" name="SearchBar" style="bottom: auto; left: auto; padding-left: 0; margin-left: 0; margin-right: 0; margin-bottom: 0; margin-top: 0; flex-grow: 1; flex-basis: auto; width: 80%;"/>
+                <ui:TextField label="" placeholder-text="Search Command" name="SearchBar" select-all-on-focus="false" emoji-fallback-support="true" style="bottom: auto; left: auto; padding-left: 0; margin-left: 0; margin-right: 0; margin-bottom: 0; margin-top: 0; flex-grow: 1; flex-basis: auto; width: 80%;"/>
             </ui:VisualElement>
             <ui:ScrollView name="Blocks" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden" style="flex-grow: 0; padding-top: 8px; padding-left: 8px; padding-right: 8px; padding-bottom: 8px; flex-shrink: 1;"/>
         </ui:VisualElement>

@@ -24,6 +24,9 @@ namespace Holylib.DebugConsole {
         [Header("Settings")]
         [Tooltip("When calling a debug function using keybinds hold this button first")]
         [SerializeField] private Key _debugCommandKey = Key.AltGr;
+
+        [SerializeField]
+        private bool _defaultFocusSearch = false;
         
         [SerializeField]
         private bool _verbose = true;
@@ -150,8 +153,10 @@ namespace Holylib.DebugConsole {
             });
 
             _searchField.RegisterCallback<KeyUpEvent>(evt => {
-                SetSelectedBlockIndex(-1);
-                _updateCommandBlocksList();
+                if (_searchField.hasFocusPseudoState)
+                {
+                    _updateCommandBlocksList();
+                }
             });
             
             _loadPins();
@@ -286,7 +291,7 @@ namespace Holylib.DebugConsole {
             _root.style.display =
                 _root.style.display == DisplayStyle.None ? DisplayStyle.Flex : DisplayStyle.None;
 
-            if (IsConsoleOpen) {
+            if (IsConsoleOpen && _defaultFocusSearch) {
                 StartCoroutine(FocusNextFrame());
             }
 
