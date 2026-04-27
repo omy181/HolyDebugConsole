@@ -78,11 +78,16 @@ namespace Holylib.DebugConsole {
         #region Initialization
         protected void Awake() {
             if (instance != null) {
+                Destroy(gameObject);
                 Debug.LogWarning(this + " already has an istance.");
-            } else {
-                instance = this;
-                IsConsoleOpen = false;
+                return;
             }
+
+            gameObject.transform.SetParent(null);
+            DontDestroyOnLoad(gameObject);
+            
+            instance = this;
+            IsConsoleOpen = false;
 
             _uiDocument.enabled = true;
         }
