@@ -27,6 +27,9 @@ namespace Holylib.DebugConsole {
 
         [SerializeField]
         private bool _defaultFocusSearch = false;
+
+        [SerializeField]
+        private bool _disableConsole = true;
         
         [SerializeField]
         private bool _verbose = true;
@@ -101,7 +104,10 @@ namespace Holylib.DebugConsole {
         }
 #endif
         private void Update() {
-            _outputTheQueueUpdate();
+            if (!_disableConsole)
+            { 
+                _outputTheQueueUpdate();
+            }
             _InputHandling();
             _updateVariableFields();
         }
@@ -110,11 +116,17 @@ namespace Holylib.DebugConsole {
             instance = null;
         }
         void OnEnable() {
-            Application.logMessageReceivedThreaded += _handleLog;
+            if (!_disableConsole)
+            {
+                Application.logMessageReceivedThreaded += _handleLog;
+            }
         }
 
         void OnDisable() {
-            Application.logMessageReceived -= _handleLog;
+            if (!_disableConsole)
+            { 
+                Application.logMessageReceived -= _handleLog;
+            }
         }
         private void _initialize() {
             _root = _uiDocument.rootVisualElement;
