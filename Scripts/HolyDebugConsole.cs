@@ -49,7 +49,7 @@ namespace Holylib.DebugConsole {
         public void ExecuteCommand (string input) => _executeCommand(input);
         public static void OutputToConsole (LogElement logElement) {
             _logs.Add(logElement);
-            _refreshOutput();
+            _appendNewLine(logElement);
         }
 
         #region Initialization
@@ -270,8 +270,6 @@ namespace Holylib.DebugConsole {
             if (IsConsoleOpen) {
                 StartCoroutine(FocusNextFrame());
             }
-
-
         }
         private bool _modifyVariableCommand(CommandBlock commandBlock) {
                 try {
@@ -312,20 +310,51 @@ namespace Holylib.DebugConsole {
             return success;
         }
 
+        private static void _appendNewLine(LogElement element) {
+            
+            bool isCollapse = PlayerPrefs.GetInt(ConsoleCollapsePlayerPref,0) == 1 ? true : false;
+
+
+            if (isCollapse) {
+                if (_logCounts.ContainsKey(element)) {
+                    _logCounts[element]++;
+                    _updateCountOfConsoleLine(_logVisuals[element],_logCounts[element]);
+
+                } else {
+                    if (!instance._isTypeHidden(element.type)) {
+                        instance._instantiateConsoleLine(element);
+                        _logCounts.Add(element, 1);
+                    }
+                        
+                }
+            } else {
+                if (!instance._isTypeHidden(element.type)) {
+                    instance._instantiateConsoleLine(element);
+                }
+
+            }
+            
+            
+            instance._setFontSize();
+        }
+
         private static readonly List<LogElement> _logs = new List<LogElement>();
-        
+        private static readonly Dictionary<LogElement, int> _logCounts = new();
+        private static readonly Dictionary<LogElement, VisualElement> _logVisuals = new();
         private static void _refreshOutput() {
 
             instance._consoleView.Clear();
 
             bool isCollapse = PlayerPrefs.GetInt(ConsoleCollapsePlayerPref,0) == 1 ? true : false;
+
+            _logCounts.Clear();
+            _logVisuals.Clear();
             
-            Dictionary<LogElement, int> logCounts = new();
             foreach (var entry in _logs) {
 
                 if (isCollapse) {
-                    if (!logCounts.TryAdd(entry,1)) {
-                        logCounts[entry]++;
+                    if (!_logCounts.TryAdd(entry,1)) {
+                        _logCounts[entry]++;
                     }
                 } else {
                     if(!instance._isTypeHidden(entry.type))
@@ -334,7 +363,7 @@ namespace Holylib.DebugConsole {
             }
 
             if (isCollapse) {
-                foreach (var key in logCounts) {
+                foreach (var key in _logCounts) {
                     if(!instance._isTypeHidden(key.Key.type))
                         instance._instantiateConsoleLine(key.Key,key.Value);
                 }
@@ -505,6 +534,14 @@ namespace Holylib.DebugConsole {
         
         #region Console Visualisation
 
+        private static void _updateCountOfConsoleLine(VisualElement logElement,int newCount) {
+            if (newCount > 1) {
+                logElement.Q<Label>("Count").text = newCount.ToString();
+            } else {
+                logElement.Q<Label>("Count").text = "";
+            }
+
+        }
         private void _instantiateConsoleLine(LogElement logElement,int count = 1) {
             
             string colorStart = "";
@@ -534,7 +571,7 @@ namespace Holylib.DebugConsole {
             stackTraceField.value = logElement.stackTrace;
             
             _root.Q<VisualElement>("ConsoleView").Add(logLine);
-
+            _logVisuals[logElement] = logLine;
 
             if (count > 1) {
                 logLine.Q<Label>("Count").text = count.ToString();
