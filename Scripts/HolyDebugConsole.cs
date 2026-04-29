@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -717,11 +718,15 @@ namespace Holylib.DebugConsole {
                 
                 VisualBlock.Children().First().style.borderLeftColor = GroupStyle.Color;
             }
-
+            
             public void RefreshVariable() {
-                if(VariableFieldText != null)
-                    VariableFieldText.text = Field != null ? Field.GetValue()?.ToString() : "";
+                if (VariableFieldText == null || Field == null) return;
+
+                string result = Field.GetDisplayString();
+                if (result != null)
+                    VariableFieldText.text = result;
             }
+            
 
             public override string ToString() {
                 return $"{MethodName}-{GroupStyle.Name}";
@@ -729,31 +734,100 @@ namespace Holylib.DebugConsole {
         }
         
         private class VariableField {
-            private FieldInfo _field;
-            private PropertyInfo _property;
+            private Func<object> _getter;
+            private Action<object> _setter;
+            private Func<string> _getDisplayString;
             public readonly bool IsReadOnly;
-            
-            public VariableField(FieldInfo field, PropertyInfo property,bool isReadOnly) {
-                _field = field;
-                _property = property;
+            public readonly Type FieldType;
+
+            public VariableField(FieldInfo field, PropertyInfo property, bool isReadOnly) {
                 IsReadOnly = isReadOnly;
+                FieldType = field != null ? field.FieldType : property.PropertyType;
+
+                _setter = field != null
+                    ? v => field.SetValue(null, v)
+                    : v => property.SetValue(null, v);
+
+                _getDisplayString = BuildDisplayStringGetter(FieldType, field, property);
             }
 
-            public Type GetType() {
-                return _field != null ? _field.FieldType : _property.PropertyType;
+            private static Func<string> BuildDisplayStringGetter(Type type, FieldInfo field, PropertyInfo property) {
+                if (type == typeof(int)) {
+                    var typedGetter = BuildTypedGetter<int>(field, property);
+                    int last = default;
+                    return () => {
+                        int current = typedGetter();
+                        if (current == last) return null;
+                        last = current;
+                        return current.ToString();
+                    };
+                }
+                if (type == typeof(float)) {
+                    var typedGetter = BuildTypedGetter<float>(field, property);
+                    float last = default;
+                    return () => {
+                        float current = typedGetter();
+                        if (current == last) return null;
+                        last = current;
+                        return current.ToString();
+                    };
+                }
+                if (type == typeof(bool)) {
+                    var typedGetter = BuildTypedGetter<bool>(field, property);
+                    bool last = default;
+                    return () => {
+                        bool current = typedGetter();
+                        if (current == last) return null;
+                        last = current;
+                        return current.ToString();
+                    };
+                }
+                if (type == typeof(string)) {
+                    var typedGetter = BuildTypedGetter<string>(field, property);
+                    string last = null;
+                    return () => {
+                        string current = typedGetter();
+                        if (current == last) return null;
+                        last = current;
+                        return current ?? "";
+                    };
+                }
+
+                // Fallback
+                object lastObj = null;
+                Func<object> boxedGetter = field != null
+                    ? () => field.GetValue(null)
+                    : () => property.GetValue(null);
+                return () => {
+                    object current = boxedGetter();
+                    if (current == lastObj || (current != null && current.Equals(lastObj))) return null;
+                    lastObj = current;
+                    return current?.ToString() ?? "";
+                };
             }
 
-            public object GetValue() {
-                return _field != null ? _field.GetValue(null) : _property.GetValue(null);
-            }
-
-            public void SetValue (object value) {
-                if (_field != null) {
-                    _field.SetValue(null, value);
-                } else {
-                    _property.SetValue(null, value);
+            private static Func<T> BuildTypedGetter<T>(FieldInfo field, PropertyInfo property) {
+                try {
+                    if (field != null)
+                        return Expression.Lambda<Func<T>>(Expression.Field(null, field)).Compile();
+                    else
+                        return Expression.Lambda<Func<T>>(Expression.Property(null, property)).Compile();
+                } catch (Exception) {
+                    if (field != null)
+                        return () => (T)field.GetValue(null);
+                    else
+                        return () => (T)property.GetValue(null);
                 }
             }
+
+            public Type GetFieldType() => FieldType;
+
+            // Returns null if value hasn't changed, new string if it has
+            public string GetDisplayString() => _getDisplayString();
+
+            public object GetValue() => _getter();
+
+            public void SetValue(object value) => _setter(value);
         }
 
         private List<CommandBlock> _commandBlocksToUpdate = new();
@@ -776,6 +850,7 @@ namespace Holylib.DebugConsole {
             _blocksUI.Clear();
             _commandBlocks.Clear();
             _methodNameToCommandBlock.Clear();
+            instance._commandBlocksToUpdate.Clear();
             
             Dictionary<DebugGroupStyle, List<VisualElement>> groups = new();
 
