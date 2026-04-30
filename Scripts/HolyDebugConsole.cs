@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Serialization;
 using UnityEngine.UIElements;
 using Debug = UnityEngine.Debug;
 
@@ -31,7 +32,8 @@ namespace Holylib.DebugConsole {
         [HideInInspector][SerializeField] private VisualTreeAsset _commandBlockGroup;
         [HideInInspector][SerializeField] private VisualTreeAsset _consoleLine;
         [HideInInspector][SerializeField] private VisualTreeAsset _commandBlockBoolParameter;
-        [HideInInspector][SerializeField] private VisualTreeAsset _commandBlockDropdownParameter;
+        [HideInInspector][SerializeField] private VisualTreeAsset _commandBlockComboBoxParameter;
+        [HideInInspector][SerializeField] private VisualTreeAsset _comboBoxPopUp;
         
         private VisualElement _root;
         private ScrollView _blocksUI;
@@ -942,18 +944,18 @@ namespace Holylib.DebugConsole {
                 
                 var options = commandBlock.GetOptionsForParameter(parameterIndex);
                 if (options != null) {
-                    parameterField = _commandBlockDropdownParameter.Instantiate();
+                    parameterField = _commandBlockComboBoxParameter.Instantiate();
                     
-                    var dropdown = parameterField.Q<DropdownField>();
-                    dropdown.choices = options;
-                    dropdown.value = options[0];
-                    
+                    var dropdown = parameterField.Q<TextField>();
                     dropdown.label = parameter.Name;
+
+                    var combobox = new ComboBox(parameterField,options,_comboBoxPopUp);
+                    
                     dropdown.RegisterCallback<FocusEvent>(evt => {
                         SetSelectedBlockIndex(instance._visibleCommandBlocks.IndexOf(commandBlock),parameterIndex);
                     });
                     
-                    parameterFields.Add(new(() => dropdown.value, parameter.ParameterType,dropdown.Focus));
+                    parameterFields.Add(new(() => combobox.Value, parameter.ParameterType,dropdown.Focus));
                 } else {
                     parameterField = _commandBlockParameter.Instantiate();
                     
@@ -1263,6 +1265,15 @@ namespace Holylib.DebugConsole {
     }
     
     #region Attributes
+    
+    [System.AttributeUsage(System.AttributeTargets.Method)]
+    public class DebugOptionsAttribute : System.Attribute {
+        public string OptionCategoryName;
+        public DebugOptionsAttribute (string optionCategoryName) {
+            OptionCategoryName = optionCategoryName;
+        }
+    }
+
 
     [System.AttributeUsage(System.AttributeTargets.Field)]
     public class DebugCommandGroupAttribute : System.Attribute {
@@ -1338,6 +1349,7 @@ namespace Holylib.DebugConsole {
                     _registerStyles(type);
                     _registerCommands(type);
                     _registerVariables(type);
+                    _registerCommandOptions(type);
                 }
             }
         }
@@ -1354,6 +1366,28 @@ namespace Holylib.DebugConsole {
                             NameToGroup[attribute.Group] = new DebugGroupStyle(attribute.Group, Color.white);
                             Commands[method.Name.ToLower()] = new(method, NameToGroup[attribute.Group], null, null, false,attribute.ParameterOptionKeys);
                         }
+                    }
+                }
+                catch (Exception e) {
+                    Debug.LogException(e);
+                }
+            }
+        }
+        
+        private static void _registerCommandOptions (Type type) {
+
+            foreach (MethodInfo method in type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)) {
+                try {
+                    var attribute = method.GetCustomAttribute<DebugOptionsAttribute>();
+                    if (attribute != null) {
+                        
+                        if (method.ReturnType != typeof(List<string>))
+                        {
+                            Debug.LogError($"[DebugOptionSelector] Method '{method.Name}' must return List<string> but returns {method.ReturnType.Name}");
+                            continue;
+                        }
+                        
+                        DebugCommandOptionRegistery.Register(attribute.OptionCategoryName,() => method.Invoke(null, null) as List<string>);
                     }
                 }
                 catch (Exception e) {

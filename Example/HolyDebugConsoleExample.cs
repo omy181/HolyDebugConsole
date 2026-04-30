@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Holylib.DebugConsole;
@@ -55,6 +56,29 @@ public class HolyDebugConsoleExample : MonoBehaviour
 
     [DebugVariable(DebugGroupStyles.Time,isReadOnly:true)]
     private static float Time => UnityEngine.Time.time;
+
+    #region Parameters with option dropdowns
+    
+    private const string ITEMTYPES = "itemtypes";
+    private const string ITEMS = "items";
+    [DebugOptions(ITEMTYPES)] private static List<string> _selectItemTypes() => _types;
+    [DebugOptions(ITEMS)] private static List<string> _selectItems() => _items;
+    
+    private static List<string> _items=new List<string>() {
+        "apple","stick","rock"
+    };
+    
+    private static List<string> _types=new List<string>() {
+        "small","medium","large"
+    };
+    
+    [DebugCommand("",ITEMS,"a",ITEMTYPES)]
+    private static void GetItem(string item,int count,string itemtype) {
+        Debug.Log($"{count} {itemtype} {item}");
+    }
+
+  #endregion
+
 }
 
 public static class DebugGroupStyles {

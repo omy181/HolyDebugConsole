@@ -9,7 +9,8 @@ MonoImporter:
   - _commandBlockGroup: {fileID: 9197481963319205126, guid: 6bc7e33b085a87b4597afd1cc33b28fc, type: 3}
   - _consoleLine: {fileID: 9197481963319205126, guid: 2225f2780c33f1049ac4a55b3c4e96a2, type: 3}
   - _commandBlockBoolParameter: {fileID: 9197481963319205126, guid: 64d5cdaac43976146a189165960c9587, type: 3}
-  - _commandBlockDropdownParameter: {fileID: 9197481963319205126, guid: e5c3a552e2d3a6f4eb7ee69931edaf80, type: 3}
+  - _commandBlockComboBoxParameter: {fileID: 9197481963319205126, guid: 7365511b3c996164ca9a7a557e07f117, type: 3}
+  - _comboBoxPopUp: {fileID: 9197481963319205126, guid: f81cd024bc731be44b3df4b1ecbe3f27, type: 3}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 

@@ -5,7 +5,7 @@
     --error-dark-color: rgb(195, 45, 1);
 }
 
-.unity-base-field__input {
+.unity-base-text-field__input {
     background-color: rgb(26, 26, 26);
     border-top-left-radius: 8px;
     padding-left: 6px;
@@ -34,7 +34,6 @@
 .unity-base-popup-field__input:focus:enabled {
     border-color: var(--accent-color);
 }
-
 
 .unity-base-text-field:focus:enabled > .unity-base-text-field__label,
 .unity-base-text:focus:enabled {
@@ -251,7 +250,3 @@
     background-color: rgb(24, 24, 24);
     -unity-background-image-tint-color: rgb(255, 255, 255);
 }
-
-
-
-
