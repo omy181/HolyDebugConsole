@@ -1490,7 +1490,7 @@ namespace Holylib.DebugConsole {
 
         public static void Register(string key, Func<List<string>> option) => _options[key] = option;
 
-        public static List<string> Get(string key) => _options.TryGetValue(key, out var fn) ? fn() : null;
+        public static List<string> Get(string key) => _options.TryGetValue(key, out var fn) ? fn() : new();
     }
     #endregion
 

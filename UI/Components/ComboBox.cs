@@ -50,7 +50,7 @@ public class ComboBox
         };
 
         _popup.style.position = Position.Absolute;
-        _popup.style.maxHeight = 150;
+        _popup.style.maxHeight = 300;
 
         var panelRoot = _root.panel.visualTree;
         panelRoot.Add(_popup);
