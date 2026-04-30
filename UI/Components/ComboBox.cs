@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -9,13 +10,13 @@ public class ComboBox
     private readonly Button _arrow;
     private readonly VisualElement _root;
     private TemplateContainer _popup;
-    private List<string> _options;
+    private Func<List<string>> _options;
 
     [SerializeField] private VisualTreeAsset _popupTemplate;
 
     public string Value => _input.value;
 
-    public ComboBox(TemplateContainer template, List<string> options, VisualTreeAsset popupTemplate)
+    public ComboBox(TemplateContainer template, Func<List<string>> options, VisualTreeAsset popupTemplate)
     {
         _root = template.Q<VisualElement>("ComboBox");
         _input = template.Q<TextField>("CommandBlockParameter");
@@ -38,10 +39,10 @@ public class ComboBox
         _popup.RegisterCallback<MouseDownEvent>(evt => evt.StopPropagation());
 
         var listView = _popup.Q<ListView>("popup-list");
-        listView.itemsSource = _options;
+        listView.itemsSource = _options();
         listView.fixedItemHeight = 24;
         listView.makeItem = () => new Label();
-        listView.bindItem = (el, i) => ((Label)el).text = _options[i];
+        listView.bindItem = (el, i) => ((Label)el).text = _options()[i];
 
         listView.selectionChanged += (items) =>
         {

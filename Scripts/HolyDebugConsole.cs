@@ -949,7 +949,8 @@ namespace Holylib.DebugConsole {
                     var dropdown = parameterField.Q<TextField>();
                     dropdown.label = parameter.Name;
 
-                    var combobox = new ComboBox(parameterField,options,_comboBoxPopUp);
+                    int ind = parameterIndex;
+                    var combobox = new ComboBox(parameterField,()=>commandBlock.GetOptionsForParameter(ind),_comboBoxPopUp);
                     
                     dropdown.RegisterCallback<FocusEvent>(evt => {
                         SetSelectedBlockIndex(instance._visibleCommandBlocks.IndexOf(commandBlock),parameterIndex);
