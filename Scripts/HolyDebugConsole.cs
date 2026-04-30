@@ -31,6 +31,7 @@ namespace Holylib.DebugConsole {
         [HideInInspector][SerializeField] private VisualTreeAsset _commandBlockGroup;
         [HideInInspector][SerializeField] private VisualTreeAsset _consoleLine;
         [HideInInspector][SerializeField] private VisualTreeAsset _commandBlockBoolParameter;
+        [HideInInspector][SerializeField] private VisualTreeAsset _commandBlockDropdownParameter;
         
         private VisualElement _root;
         private ScrollView _blocksUI;
@@ -687,7 +688,13 @@ namespace Holylib.DebugConsole {
             public List<ParameterField> ParameterFields;
             public VisualElement VisualBlock;
             public VisualElement ParameterParent;
+
+            private string[] parameterOptionKeys;
             public Label VariableFieldText;
+            public List<string> GetOptionsForParameter(int index) {
+                if(parameterOptionKeys == null || index >= parameterOptionKeys.Length) return null;
+                return DebugCommandOptionRegistery.Get(parameterOptionKeys[index]);
+            }
             
 
             public void Initialize(DebugCommandRegistry.MethodGroup methodGroup) {
@@ -697,6 +704,7 @@ namespace Holylib.DebugConsole {
                 GroupStyle = methodGroup.group;
                 Parameters = !isVariableField ? methodGroup.method.GetParameters() : Array.Empty<ParameterInfo>();
                 Field = isVariableField ? new VariableField(methodGroup.field,methodGroup.property,methodGroup.isReadOnly) : null;
+                parameterOptionKeys = methodGroup.parameterOptionKeys;
                 _createVisualBlock();
                 RefreshVariable();
 
@@ -930,15 +938,35 @@ namespace Holylib.DebugConsole {
             int parameterIndex = 0;
             foreach (var parameter in commandBlock.Parameters) {
 
-                var parameterField = _commandBlockParameter.Instantiate();
-                var field = parameterField.Q<TextField>("CommandBlockParameter");
-                field.label = parameter.Name;
-                field.RegisterCallback<FocusEvent>(evt => {
-                    SetSelectedBlockIndex(instance._visibleCommandBlocks.IndexOf(commandBlock),parameterIndex);
-                });
+                TemplateContainer parameterField;
+                
+                var options = commandBlock.GetOptionsForParameter(parameterIndex);
+                if (options != null) {
+                    parameterField = _commandBlockDropdownParameter.Instantiate();
+                    
+                    var dropdown = parameterField.Q<DropdownField>();
+                    dropdown.choices = options;
+                    dropdown.value = options[0];
+                    
+                    dropdown.label = parameter.Name;
+                    dropdown.RegisterCallback<FocusEvent>(evt => {
+                        SetSelectedBlockIndex(instance._visibleCommandBlocks.IndexOf(commandBlock),parameterIndex);
+                    });
+                    
+                    parameterFields.Add(new(() => dropdown.value, parameter.ParameterType,dropdown.Focus));
+                } else {
+                    parameterField = _commandBlockParameter.Instantiate();
+                    
+                    var field = parameterField.Q<TextField>("CommandBlockParameter");
+                    field.label = parameter.Name;
+                    field.RegisterCallback<FocusEvent>(evt => {
+                        SetSelectedBlockIndex(instance._visibleCommandBlocks.IndexOf(commandBlock),parameterIndex);
+                    });
+                    
+                    parameterFields.Add(new(() => field.value, parameter.ParameterType,field.Focus));
+                }
                 
                 
-                parameterFields.Add(new(() => field.value, parameter.ParameterType,field.Focus));
 
                 block.Q<VisualElement>("Parameters").Add(parameterField);
                 parameterIndex++;
@@ -1249,12 +1277,20 @@ namespace Holylib.DebugConsole {
     public class DebugCommandAttribute : System.Attribute {
 
         public string Group { get; }
+        public string[] ParameterOptionKeys { get; }
+
         public DebugCommandAttribute (string group) {
             Group = group;
+            ParameterOptionKeys = null;
+        }
+        public DebugCommandAttribute (string group = HolyDebugGroupStyles.Uncategorized, params string[] parameterOptionKeys) {
+            Group = group;
+            ParameterOptionKeys = parameterOptionKeys;
         }
 
         public DebugCommandAttribute() {
             Group = HolyDebugGroupStyles.Uncategorized;
+            ParameterOptionKeys = null;
         }
     }
 
@@ -1266,12 +1302,14 @@ namespace Holylib.DebugConsole {
             public readonly MethodInfo method;
             public DebugGroupStyle group;
             public readonly bool isReadOnly;
-            public MethodGroup (MethodInfo method, DebugGroupStyle group, FieldInfo field, PropertyInfo property, bool isReadOnly) {
+            public readonly string[] parameterOptionKeys;
+            public MethodGroup (MethodInfo method, DebugGroupStyle group, FieldInfo field, PropertyInfo property, bool isReadOnly,string[] parameterOptionKeys) {
                 this.method = method;
                 this.group = group;
                 this.field = field;
                 this.property = property;
                 this.isReadOnly = isReadOnly;
+                this.parameterOptionKeys = parameterOptionKeys;
             }
         }
 
@@ -1311,10 +1349,10 @@ namespace Holylib.DebugConsole {
                     var attribute = method.GetCustomAttribute<DebugCommandAttribute>();
                     if (attribute != null) {
                         if (NameToGroup.TryGetValue(attribute.Group, out DebugGroupStyle group)) {
-                            Commands[method.Name.ToLower()] = new(method, group, null, null, false);
+                            Commands[method.Name.ToLower()] = new(method, group, null, null, false,attribute.ParameterOptionKeys);
                         } else {
                             NameToGroup[attribute.Group] = new DebugGroupStyle(attribute.Group, Color.white);
-                            Commands[method.Name.ToLower()] = new(method, NameToGroup[attribute.Group], null, null, false);
+                            Commands[method.Name.ToLower()] = new(method, NameToGroup[attribute.Group], null, null, false,attribute.ParameterOptionKeys);
                         }
                     }
                 }
@@ -1410,6 +1448,15 @@ namespace Holylib.DebugConsole {
             methodGroup.method.Invoke(null, parsedArgs);
             return true;
         }
+    }
+    
+    public static class DebugCommandOptionRegistery
+    {
+        private static readonly Dictionary<string, Func<List<string>>> _options = new();
+
+        public static void Register(string key, Func<List<string>> option) => _options[key] = option;
+
+        public static List<string> Get(string key) => _options.TryGetValue(key, out var fn) ? fn() : null;
     }
     #endregion
 

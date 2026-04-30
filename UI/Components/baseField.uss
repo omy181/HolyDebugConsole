@@ -31,6 +31,11 @@
     border-color: var(--accent-color);
 }
 
+.unity-base-popup-field__input:focus:enabled {
+    border-color: var(--accent-color);
+}
+
+
 .unity-base-text-field:focus:enabled > .unity-base-text-field__label,
 .unity-base-text:focus:enabled {
     color: var(--accent-color);

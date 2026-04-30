@@ -1,0 +1,5 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="project://database/Assets/DebugConsole/dev.holyperson.holydebugconsole/UI/Components/HolyDebugCSS.uss?fileID=7433441132597879392&amp;guid=11d8bbd139c6df54eaad555d7fa06a11&amp;type=3#HolyDebugCSS"/>
+    <Style src="project://database/Assets/DebugConsole/dev.holyperson.holydebugconsole/UI/Components/baseField.uss?fileID=7433441132597879392&amp;guid=f9a9546ed27c57843bb3d709e002abd8&amp;type=3#baseField"/>
+    <ui:DropdownField label="Item Name" name="CommandBlockParameter" style="-unity-text-align: upper-right; color: rgb(183, 183, 183); -unity-font-style: italic;"/>
+</ui:UXML>
