@@ -9,6 +9,7 @@ public class ComboBox
     private readonly VisualElement _root;
     private TemplateContainer _popup;
     private Func<List<string>> _options;
+    private int _selectedIndex = -1;
 
     [SerializeField] private VisualTreeAsset _popupTemplate;
 
@@ -20,14 +21,47 @@ public class ComboBox
         _input = template.Q<TextField>("CommandBlockParameter");
         _options = options;
         _popupTemplate = popupTemplate;
+
+        _root.RegisterCallback<KeyDownEvent>(OnKeyDown, TrickleDown.TrickleDown);
     }
 
-    public void OpenPopup() {
+    private void OnKeyDown(KeyDownEvent evt)
+    {
+        if (evt.character != '\t') return;
 
-        if(_popup != null) return;
+        var options = _options();
+        if (options == null || options.Count == 0) return;
+
+        evt.StopPropagation();
+        evt.PreventDefault();
+
+        if (_popup == null)
             TogglePopup();
+
+        if (evt.shiftKey)
+            _selectedIndex = (_selectedIndex - 1 + options.Count) % options.Count;
+        else
+            _selectedIndex = (_selectedIndex + 1) % options.Count;
+
+        _input.value = options[_selectedIndex];
+        HighlightOption(_selectedIndex);
     }
-    
+
+    private void HighlightOption(int index)
+    {
+        var listView = _popup?.Q<ListView>("popup-list");
+        if (listView == null) return;
+
+        listView.selectedIndex = index;
+        listView.ScrollToItem(index);
+    }
+
+    public void OpenPopup()
+    {
+        if (_popup != null) return;
+        TogglePopup();
+    }
+
     private void TogglePopup()
     {
         if (_popup != null)
@@ -35,14 +69,14 @@ public class ComboBox
             ClosePopup();
             return;
         }
-        
-        _input.RegisterCallback<>(); // when pressed tab i want to switch between options
-        
+
+        _selectedIndex = -1;
+
         _popup = _popupTemplate.Instantiate();
         _popup.RegisterCallback<PointerDownEvent>(evt => evt.StopPropagation(), TrickleDown.TrickleDown);
 
         var listView = _popup.Q<ListView>("popup-list");
-        listView.selectionType = SelectionType.None;
+        listView.selectionType = SelectionType.Single;
         listView.itemsSource = _options();
         listView.fixedItemHeight = 24;
         listView.makeItem = () =>
@@ -89,7 +123,7 @@ public class ComboBox
 
         _input.value = label.userData as string;
         evt.StopPropagation();
-        
+
         return;
         ClosePopup();
     }
