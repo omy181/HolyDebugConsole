@@ -21,7 +21,7 @@ public class ComboBox
         _input = template.Q<TextField>("CommandBlockParameter");
         _options = options;
         _popupTemplate = popupTemplate;
-
+        
         _root.RegisterCallback<KeyDownEvent>(OnKeyDown, TrickleDown.TrickleDown);
     }
 
@@ -106,7 +106,7 @@ public class ComboBox
             var arrowWorldBound = _input.worldBound;
             var localPos = panelRoot.WorldToLocal(new Vector2(arrowWorldBound.xMax, arrowWorldBound.yMin));
             _popup.style.left = localPos.x;
-            _popup.style.top = localPos.y - _popup.layout.height;
+            _popup.style.top = localPos.y;
             _popup.style.width = _root.worldBound.width;
         });
 

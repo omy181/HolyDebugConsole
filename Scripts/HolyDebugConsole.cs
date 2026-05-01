@@ -5,7 +5,6 @@ using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.Serialization;
 using UnityEngine.UIElements;
 using Debug = UnityEngine.Debug;
 
@@ -145,6 +144,8 @@ namespace Holylib.DebugConsole {
             _setConsoleVisibility();
             _setConsoleCollapse();
             _setLogButtons();
+
+            _keybindExistanceCheck();
         }
         
   #endregion
@@ -644,10 +645,17 @@ namespace Holylib.DebugConsole {
         private int _selectedBlockIndex = -1;
         private int GetSelectedBlockIndex() => _selectedBlockIndex;
         private void SetSelectedBlockIndex (int value,int manualParameterIndex = -1) {
-            if (value == _selectedBlockIndex) return;
-            
             bool isManualParameterIndex = manualParameterIndex != -1;
+            
+            if (value == _selectedBlockIndex) {
 
+                if (isManualParameterIndex && SelectedParameterIndex != manualParameterIndex) {
+                    SelectedParameterIndex = manualParameterIndex;
+                }
+                
+                return;
+            }
+            
             if (value == -1 || value == _visibleBlockCount) {
                 _selectedBlockIndex = -1;
                 SelectedParameterIndex = isManualParameterIndex ? manualParameterIndex : -1;
@@ -950,6 +958,7 @@ namespace Holylib.DebugConsole {
                 var options = commandBlock.GetOptionsForParameter(parameterIndex);
                 if (options != null) {
                     parameterField = _commandBlockParameter.Instantiate();
+                    parameterField.pickingMode = PickingMode.Ignore;
                     
                     var dropdown = parameterField.Q<TextField>();
                     dropdown.label = parameter.Name;
@@ -970,8 +979,10 @@ namespace Holylib.DebugConsole {
                     }));
                 } else {
                     parameterField = _commandBlockParameter.Instantiate();
+                    parameterField.pickingMode = PickingMode.Ignore;
                     
                     var field = parameterField.Q<TextField>("CommandBlockParameter");
+                    
                     field.label = parameter.Name;
                     field.RegisterCallback<FocusEvent>(evt => {
                         SetSelectedBlockIndex(instance._visibleCommandBlocks.IndexOf(commandBlock),ind);
@@ -996,6 +1007,7 @@ namespace Holylib.DebugConsole {
 
                 } else if(!commandBlock.Field.IsReadOnly) {
                     TemplateContainer parameterField = _commandBlockParameter.Instantiate();
+                    parameterField.pickingMode = PickingMode.Ignore;
                     
                     var field = parameterField.Q<TextField>("CommandBlockParameter");
                     field.label = " ";
@@ -1225,11 +1237,41 @@ namespace Holylib.DebugConsole {
         private void _keybindingInputCheck() {
             
             if(!Keyboard.current[_debugCommandKey].isPressed) return;
-            
+
+
             foreach (var keybinding in _keybindings) {
                 if (Keyboard.current[keybinding.Value].wasReleasedThisFrame) {
-                    _methodNameToCommandBlock[keybinding.Key].RunCommand();
+
+                    if (_methodNameToCommandBlock.TryGetValue(keybinding.Key, out var block)) {
+                        block.RunCommand();
+                    } else {
+                        Debug.LogWarning($"Couldn't run {block.MethodName}");
+                    }
                 }
+            }
+        }
+
+        private void _keybindExistanceCheck() {
+            List<string> keybindsToRemove = new();
+            
+            foreach (var keybinding in _keybindings) {
+                if (_methodNameToCommandBlock.TryGetValue(keybinding.Key, out var block)) {
+                    block.RunCommand();
+                } else {
+                    keybindsToRemove.Add(keybinding.Key);
+                }
+            }
+            
+            if (keybindsToRemove.Count > 0) {
+                string keybindNames = "";
+                foreach (var keybind in keybindsToRemove) {
+                    keybindNames += $"{_keybindings[keybind]} - {keybind}\n";
+                    _keybindings.Remove(keybind);
+                }
+                
+                Debug.Log($"HolyDebugConsole: Unused keybinds are removed\n{keybindNames}");
+                
+                _saveKeybinds();
             }
         }
 
