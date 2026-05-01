@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -36,18 +35,26 @@ public class ComboBox
         }
 
         _popup = _popupTemplate.Instantiate();
-        _popup.RegisterCallback<MouseDownEvent>(evt => evt.StopPropagation());
+        _popup.RegisterCallback<PointerDownEvent>(evt => evt.StopPropagation(), TrickleDown.TrickleDown);
 
         var listView = _popup.Q<ListView>("popup-list");
+        listView.selectionType = SelectionType.None;
         listView.itemsSource = _options();
         listView.fixedItemHeight = 24;
-        listView.makeItem = () => new Label();
-        listView.bindItem = (el, i) => ((Label)el).text = _options()[i];
-
-        listView.selectionChanged += (items) =>
+        listView.makeItem = () =>
         {
-            _input.value = items.First() as string;
-            ClosePopup();
+            var label = new Label();
+            label.AddToClassList("combobox-option");
+            return label;
+        };
+        listView.bindItem = (el, i) =>
+        {
+            var label = (Label)el;
+            label.text = _options()[i];
+            label.userData = _options()[i];
+
+            label.UnregisterCallback<ClickEvent>(OnItemClicked);
+            label.RegisterCallback<ClickEvent>(OnItemClicked);
         };
 
         _popup.style.position = Position.Absolute;
@@ -69,6 +76,16 @@ public class ComboBox
         {
             panelRoot.RegisterCallback<MouseDownEvent>(OnClickOutside, TrickleDown.TrickleDown);
         }).ExecuteLater(1);
+    }
+
+    private void OnItemClicked(ClickEvent evt)
+    {
+        var label = evt.target as Label;
+        if (label == null) return;
+
+        _input.value = label.userData as string;
+        evt.StopPropagation();
+        ClosePopup();
     }
 
     private void OnClickOutside(MouseDownEvent evt)

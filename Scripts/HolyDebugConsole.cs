@@ -1045,11 +1045,13 @@ namespace Holylib.DebugConsole {
             };
 
             block.RegisterCallback<MouseUpEvent>((a) => {
+                if (a.target != block.Children().First()) return;
                 commandBlock.RunCommand();
             });
 
             return (block,parameterFields);
         }
+        
         
         private struct ParameterField {
 
