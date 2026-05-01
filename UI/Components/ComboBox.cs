@@ -6,7 +6,6 @@ using UnityEngine.UIElements;
 public class ComboBox
 {
     private readonly TextField _input;
-    private readonly Button _arrow;
     private readonly VisualElement _root;
     private TemplateContainer _popup;
     private Func<List<string>> _options;
@@ -17,15 +16,18 @@ public class ComboBox
 
     public ComboBox(TemplateContainer template, Func<List<string>> options, VisualTreeAsset popupTemplate)
     {
-        _root = template.Q<VisualElement>("ComboBox");
+        _root = template.Q<VisualElement>("Parameter");
         _input = template.Q<TextField>("CommandBlockParameter");
-        _arrow = template.Q<Button>("combobox-arrow");
         _options = options;
         _popupTemplate = popupTemplate;
-
-        _arrow.clicked += TogglePopup;
     }
 
+    public void OpenPopup() {
+
+        if(_popup != null) return;
+            TogglePopup();
+    }
+    
     private void TogglePopup()
     {
         if (_popup != null)
@@ -33,7 +35,9 @@ public class ComboBox
             ClosePopup();
             return;
         }
-
+        
+        _input.RegisterCallback<>(); // when pressed tab i want to switch between options
+        
         _popup = _popupTemplate.Instantiate();
         _popup.RegisterCallback<PointerDownEvent>(evt => evt.StopPropagation(), TrickleDown.TrickleDown);
 
@@ -65,8 +69,8 @@ public class ComboBox
 
         _popup.RegisterCallbackOnce<GeometryChangedEvent>(_ =>
         {
-            var arrowWorldBound = _arrow.worldBound;
-            var localPos = panelRoot.WorldToLocal(new Vector2(arrowWorldBound.xMin, arrowWorldBound.yMin));
+            var arrowWorldBound = _input.worldBound;
+            var localPos = panelRoot.WorldToLocal(new Vector2(arrowWorldBound.xMax, arrowWorldBound.yMin));
             _popup.style.left = localPos.x;
             _popup.style.top = localPos.y - _popup.layout.height;
             _popup.style.width = _root.worldBound.width;
@@ -85,16 +89,19 @@ public class ComboBox
 
         _input.value = label.userData as string;
         evt.StopPropagation();
+        
+        return;
         ClosePopup();
     }
 
     private void OnClickOutside(MouseDownEvent evt)
     {
+        return;
         if (_popup != null && !_popup.Contains(evt.target as VisualElement))
             ClosePopup();
     }
 
-    private void ClosePopup()
+    public void ClosePopup()
     {
         _root.panel.visualTree.UnregisterCallback<MouseDownEvent>(OnClickOutside, TrickleDown.TrickleDown);
         _popup?.RemoveFromHierarchy();

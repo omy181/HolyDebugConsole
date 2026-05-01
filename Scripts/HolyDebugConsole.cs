@@ -32,7 +32,6 @@ namespace Holylib.DebugConsole {
         [HideInInspector][SerializeField] private VisualTreeAsset _commandBlockGroup;
         [HideInInspector][SerializeField] private VisualTreeAsset _consoleLine;
         [HideInInspector][SerializeField] private VisualTreeAsset _commandBlockBoolParameter;
-        [HideInInspector][SerializeField] private VisualTreeAsset _commandBlockComboBoxParameter;
         [HideInInspector][SerializeField] private VisualTreeAsset _comboBoxPopUp;
         
         private VisualElement _root;
@@ -195,6 +194,8 @@ namespace Holylib.DebugConsole {
             }
         }
         private void _tabPressed() {
+
+            return; // turned off for parameter option selection instead
             if (_hasParametersInSelection) {
                 SelectedParameterIndex = (SelectedParameterIndex + 1 + _getSelectedCommandBlock.ParameterLength) % _getSelectedCommandBlock.ParameterLength;
                 _updateCommandBlocksList();
@@ -615,12 +616,15 @@ namespace Holylib.DebugConsole {
         private List<CommandBlock> _visibleCommandBlocks = new();
         private Dictionary<string, CommandBlock> _methodNameToCommandBlock = new();
 
+        private ParameterField _lastSelectedParameterField;
         private bool _hasParametersInSelection =>  _getSelectedCommandBlock?.ParameterLength > 0;
         private int _visibleBlockCount;
         private int _selectedParameterIndex;
         private int SelectedParameterIndex {
             get => _selectedParameterIndex;
             set {
+                _lastSelectedParameterField.UnFocus();
+                
                 _selectedParameterIndex = value;
 
                 if (_getSelectedCommandBlock == null || _getSelectedCommandBlock.ParameterLength <= 0 || SelectedParameterIndex < 0) return;
@@ -629,6 +633,7 @@ namespace Holylib.DebugConsole {
                 foreach (var parameterField in _getSelectedCommandBlock.ParameterFields) {
                     
                     if (a == SelectedParameterIndex) {
+                        _lastSelectedParameterField = parameterField;
                         parameterField.Focus();
                         break;
                     }
@@ -939,34 +944,40 @@ namespace Holylib.DebugConsole {
 
             int parameterIndex = 0;
             foreach (var parameter in commandBlock.Parameters) {
-
+                int ind = parameterIndex;
                 TemplateContainer parameterField;
                 
                 var options = commandBlock.GetOptionsForParameter(parameterIndex);
                 if (options != null) {
-                    parameterField = _commandBlockComboBoxParameter.Instantiate();
+                    parameterField = _commandBlockParameter.Instantiate();
                     
                     var dropdown = parameterField.Q<TextField>();
                     dropdown.label = parameter.Name;
 
-                    int ind = parameterIndex;
+                    
                     var combobox = new ComboBox(parameterField,()=>commandBlock.GetOptionsForParameter(ind),_comboBoxPopUp);
                     
                     dropdown.RegisterCallback<FocusEvent>(evt => {
-                        SetSelectedBlockIndex(instance._visibleCommandBlocks.IndexOf(commandBlock),parameterIndex);
+                        SetSelectedBlockIndex(instance._visibleCommandBlocks.IndexOf(commandBlock),ind);
                     });
                     
-                    parameterFields.Add(new(() => combobox.Value, parameter.ParameterType,dropdown.Focus));
+                    parameterFields.Add(new(() => combobox.Value, parameter.ParameterType,()=> {
+                        dropdown.Focus();
+                        combobox.OpenPopup();
+                    }, () => {
+                        dropdown.Blur();
+                        combobox.ClosePopup();
+                    }));
                 } else {
                     parameterField = _commandBlockParameter.Instantiate();
                     
                     var field = parameterField.Q<TextField>("CommandBlockParameter");
                     field.label = parameter.Name;
                     field.RegisterCallback<FocusEvent>(evt => {
-                        SetSelectedBlockIndex(instance._visibleCommandBlocks.IndexOf(commandBlock),parameterIndex);
+                        SetSelectedBlockIndex(instance._visibleCommandBlocks.IndexOf(commandBlock),ind);
                     });
                     
-                    parameterFields.Add(new(() => field.value, parameter.ParameterType,field.Focus));
+                    parameterFields.Add(new(() => field.value, parameter.ParameterType,field.Focus,field.Blur));
                 }
                 
                 
@@ -992,7 +1003,7 @@ namespace Holylib.DebugConsole {
                         SetSelectedBlockIndex(instance._visibleCommandBlocks.IndexOf(commandBlock),parameterIndex);
                     });
                 
-                    parameterFields.Add(new(()=>field.value, commandBlock.Field.GetType(),field.Focus));
+                    parameterFields.Add(new(()=>field.value, commandBlock.Field.GetType(),field.Focus,field.Blur));
 
                     block.Q<VisualElement>("Parameters").Add(parameterField);
                 }
@@ -1056,12 +1067,14 @@ namespace Holylib.DebugConsole {
         private struct ParameterField {
 
             private Action _focus;
+            private Action _unfocus;
             private Func<string> _getValue;
             public Type Type;
-            public ParameterField(Func<string> getValueFunc, Type type,Action focus) {
+            public ParameterField(Func<string> getValueFunc, Type type,Action focus,Action unfocus) {
                 _getValue = getValueFunc;
                 Type = type;
                 _focus = focus;
+                _unfocus = unfocus;
             }
 
             public string GetValue() {
@@ -1070,6 +1083,10 @@ namespace Holylib.DebugConsole {
 
             public void Focus() {
                 _focus.Invoke();
+            }
+            
+            public void UnFocus() {
+                _unfocus?.Invoke();
             }
         }
         

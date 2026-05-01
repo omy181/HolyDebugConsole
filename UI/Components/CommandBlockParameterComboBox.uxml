@@ -1,7 +1,0 @@
-<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
-    <Style src="project://database/Assets/DebugConsole/dev.holyperson.holydebugconsole/UI/Components/baseField.uss?fileID=7433441132597879392&amp;guid=f9a9546ed27c57843bb3d709e002abd8&amp;type=3#baseField"/>
-    <ui:VisualElement name="ComboBox" style="flex-grow: 1; flex-direction: row;">
-        <ui:TextField label="Item Name" placeholder-text="" name="CommandBlockParameter" style="color: rgb(185, 185, 185); -unity-text-align: upper-right; -unity-font-style: italic; font-size: 13px; flex-grow: 1;"/>
-        <ui:Button text="▾" name="combobox-arrow" style="flex-shrink: 1; padding-left: 8px; padding-right: 8px; padding-bottom: 4px; padding-top: 4px; margin-left: 0; margin-bottom: 8px;"/>
-    </ui:VisualElement>
-</ui:UXML>
