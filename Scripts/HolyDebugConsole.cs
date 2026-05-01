@@ -113,7 +113,10 @@ namespace Holylib.DebugConsole {
         }
 
         protected virtual void OnDestroy() {
-            instance = null;
+            if (instance == this)
+            { 
+                instance = null;
+            }
         }
         void OnEnable() {
             if (!_disableConsole)
