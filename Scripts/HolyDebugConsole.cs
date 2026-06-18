@@ -1396,6 +1396,8 @@ namespace Holylib.DebugConsole {
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void RegisterCommands() {
 
+            List<Assembly> assemblies = new();
+
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies()) {
                 string assemblyName = assembly.FullName;
                 
@@ -1407,8 +1409,18 @@ namespace Holylib.DebugConsole {
                     if(HolyDebugConsole.instance.ExcludeExampleCommands) continue;
                 }
 
+                assemblies.Add(assembly);
+
+                // Styles should be registered before everything
                 foreach (Type type in assembly.GetTypes()) {
                     _registerStyles(type);
+                }
+            }
+
+            foreach (var assembly in assemblies)
+            {
+                foreach (Type type in assembly.GetTypes())
+                {
                     _registerCommands(type);
                     _registerVariables(type);
                     _registerCommandOptions(type);
