@@ -1329,6 +1329,7 @@ namespace Holylib.DebugConsole {
 
     #region Attributes
 
+    [MeansImplicitUse]
     [System.AttributeUsage(System.AttributeTargets.Method)]
     public class DebugOptionsAttribute : System.Attribute {
         public string OptionCategoryName;
@@ -1337,6 +1338,7 @@ namespace Holylib.DebugConsole {
         }
     }
 
+    [MeansImplicitUse]
     [System.AttributeUsage(System.AttributeTargets.Field)]
     public class DebugCommandGroupAttribute : System.Attribute {
 
