@@ -1,3 +1,4 @@
+using JetBrains.Annotations;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -1325,9 +1326,9 @@ namespace Holylib.DebugConsole {
 
 #endregion
     }
-    
+
     #region Attributes
-    
+
     [System.AttributeUsage(System.AttributeTargets.Method)]
     public class DebugOptionsAttribute : System.Attribute {
         public string OptionCategoryName;
@@ -1335,7 +1336,6 @@ namespace Holylib.DebugConsole {
             OptionCategoryName = optionCategoryName;
         }
     }
-
 
     [System.AttributeUsage(System.AttributeTargets.Field)]
     public class DebugCommandGroupAttribute : System.Attribute {
@@ -1346,6 +1346,7 @@ namespace Holylib.DebugConsole {
         }
     }
 
+    [MeansImplicitUse]
     [System.AttributeUsage(System.AttributeTargets.Method)]
     public class DebugCommandAttribute : System.Attribute {
 

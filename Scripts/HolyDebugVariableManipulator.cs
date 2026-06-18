@@ -1,3 +1,4 @@
+using JetBrains.Annotations;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -58,7 +59,7 @@ namespace Holylib.DebugConsole {
         }
     }
 
-
+    [MeansImplicitUse]
     [System.AttributeUsage(System.AttributeTargets.Field | System.AttributeTargets.Property)]
         public class DebugVariableAttribute : System.Attribute {
             public string Group { get; }
